@@ -68,11 +68,11 @@ def run(api,args,logger):
         # and if SSH_AGENT_PID is set kill it
         utils.read_sshagent_environ()
         if os.environ.get("SSH_AGENT_PID",None):
-	    rc = utils.subprocess_call(logger,"ssh-agent -sk &>/dev/null", shell=True)
+            rc = utils.subprocess_call(logger,"ssh-agent -sk &>/dev/null", shell=True)
 
         # Now start up ssh-agent and re-read the environment file
         # that was generated when the agent was started 
-        rc = utils.subprocess_call(logger,"ssh-agent -sa /var/lib/cobbler/.ansible.sock > /var/lib/cobbler/.ansible_sshagent", shell=True)
+        rc = utils.subprocess_call(logger,"ssh-agent -sa /var/lib/cobbler/.ansible.sock > /var/lib/cobbler/.ansible_sshagent",shell=True)
         utils.read_sshagent_environ()
 
         # if the command ran ok, ssh-add the key specified by 

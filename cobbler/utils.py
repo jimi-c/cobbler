@@ -1612,10 +1612,6 @@ def is_selinux_enabled():
     else:
         return False
 
-import os
-import sys
-import random
-
 # We cache the contents of /etc/mtab ... the following variables are used 
 # to keep our cache in sync
 mtab_mtime = None
