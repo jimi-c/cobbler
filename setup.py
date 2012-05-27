@@ -206,6 +206,7 @@ if __name__ == "__main__":
         scripts = [
             "scripts/cobbler",
             "scripts/cobblerd",
+            "scripts/cobbler-ansible",
             "scripts/cobbler-ext-nodes",
             "scripts/koan",
             "scripts/cobbler-register",
@@ -238,6 +239,7 @@ if __name__ == "__main__":
             ("%sreporting" % etcpath,       ["templates/reporting/*"]),
             ("%spower" % etcpath,           ["templates/power/*"]),
             ("%sldap" % etcpath,            ["templates/ldap/*"]),
+            ("%skeys" % etcpath,            []),
 
             #Miscellaneous Files
             ("%s" % augeaspath,                ["misc/augeas/*"]),

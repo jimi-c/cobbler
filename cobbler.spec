@@ -224,6 +224,7 @@ test "x$RPM_BUILD_ROOT" != "x" && rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root,-)
 
 %{_bindir}/cobbler
+%{_bindir}/cobbler-ansible
 %{_bindir}/cobbler-ext-nodes
 %{_bindir}/cobblerd
 %{_sbindir}/tftpd.py*

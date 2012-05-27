@@ -35,6 +35,10 @@ TESTMODE = False
 
 DEFAULTS = {
     "anamon_enabled"              : [0,"bool"],
+    "ansible_private_sshkey"      : ["/etc/cobbler/id_dsa.ansible","str"],
+    "ansible_public_sshkey"       : ["/etc/cobbler/id_dsa.ansible.pub","str"],
+    "ansible_username"            : ["","str"],
+    "ansible_options"             : ["","str"],
     "allow_duplicate_hostnames"   : [0,"bool"],
     "allow_duplicate_macs"        : [0,"bool"],
     "allow_duplicate_ips"         : [0,"bool"],
@@ -77,6 +81,7 @@ DEFAULTS = {
     "kerberos_realm"              : ["EXAMPLE.COM","str"],
     "kernel_options"              : [{"lang":" ", "text":None, "ksdevice":"eth0"},"dict"],
     "kernel_options_s390x"        : [{},"dict"],
+    "manage_ansible"              : [0,"bool"],
     "manage_dhcp"                 : [0,"bool"],
     "manage_dns"                  : [0,"bool"],
     "manage_tftp"                 : [1,"bool"],
@@ -99,6 +104,7 @@ DEFAULTS = {
     "redhat_management_key"       : ["","str"],
     "redhat_management_server"    : ["xmlrpc.rhn.redhat.com","str"],
     "register_new_installs"       : [0,"bool"],
+    "restart_ansible_sshagent"    : [1,"bool"],
     "restart_dns"                 : [1,"bool"],
     "restart_dhcp"                : [1,"bool"],
     "restart_xinetd"              : [1,"bool"],

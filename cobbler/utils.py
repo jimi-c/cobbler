@@ -2179,6 +2179,16 @@ def find_distro_path(settings, distro):
     # directory in which the given distro's kernel is
     return os.path.dirname(distro.kernel)
 
+def read_sshagent_environ():
+    if os.path.exists("/var/lib/cobbler/.ansible_sshagent"):
+        f = open("/var/lib/cobbler/.ansible_sshagent")
+        lines = f.readlines()
+        f.close()
+        for line in lines:
+            matches=re.search("(\S+)\=(\S+)\;", line)
+            if matches:
+                os.environ[matches.group(1)]=matches.group(2)
+
 if __name__ == "__main__":
     print os_release() # returns 2, not 3
 

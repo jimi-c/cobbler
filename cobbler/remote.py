@@ -1417,15 +1417,14 @@ class CobblerXMLRPCInterface:
               
     # this is used by the puppet external nodes feature
     def find_system_by_dns_name(self,dns_name):
-        # FIXME: implement using api.py's find API
-        # and expose generic finds for other methods
-        # WARNING: this function is /not/ expected to stay in cobbler long term
-        systems = self.get_systems()
-        for x in systems:
-           for y in x["interfaces"]:
-              if x["interfaces"][y]["dns_name"] == dns_name:
-                  name = x["name"]
-                  return self.get_system_for_koan(name)
+        systems = []
+        for field in ("dns_name","hostname","ip_address","name"):
+            res = self.api.find_items("system",{field:dns_name})
+            if res:
+               systems = res
+               break
+        if len(systems) > 0:
+            return self.get_system_for_koan(systems[0].name)
         return {}
 
     def get_distro_as_rendered(self,name,token=None,**rest):
