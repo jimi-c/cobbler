@@ -61,7 +61,9 @@ group {
         #end if
         ## Cobbler defaults to $next_server, but some users
         ## may like to use $iface.system.server for proxied setups
+        #if $iface.netboot_enabled:
         next-server $next_server;
+        #end if
         ## next-server $iface.next_server;
     }
         #end for
