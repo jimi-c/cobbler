@@ -48,6 +48,7 @@ import collection_files as files
 import settings
 import serializer
 import traceback
+import utils
 
 from utils import _
 from cexceptions import *
@@ -261,9 +262,11 @@ class Config:
            self._files,
            ]:
            try:
-               if not serializer.deserialize(item): raise ""
+               if not serializer.deserialize(item):
+                   raise CX("serializer: error loading collection %s. Check /etc/cobbler/modules.conf" % item.collection_type())
            except:
-               raise CX("serializer: error loading collection %s. Check /etc/cobbler/modules.conf" % item.collection_type())
+               utils.log_exc(self.api.logger)
+               return False
        return True
 
    def deserialize_raw(self,collection_type):

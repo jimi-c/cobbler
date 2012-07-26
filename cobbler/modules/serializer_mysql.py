@@ -43,10 +43,19 @@ mysql_loaded = False
  
 try:
     import MySQLdb
+
+    cp = ConfigParser.ConfigParser()
+    cp.read("/etc/cobbler/db.conf")
+
+    host = cp.get("connection","hostname")
+    port = int(cp.get("connection","port"))
+    user = cp.get("connection","username")
+    passwd = cp.get("connection","password")
+    dbname = cp.get("connection","dbname")
+
     mysql_loaded = True
 except:
-    # FIXME: log message
-    pass
+    raise "Failed to initialize MySQL serializer module"
  
 mysqlconn = None
  
@@ -60,7 +69,7 @@ def __connect():
         elif not mysqlconn.open:
             needs_connection = True
         if needs_connection:
-            mysqlconn = MySQLdb.connect(host="localhost",user="cobbler",passwd="testing123",db="cobbler")
+            mysqlconn = MySQLdb.connect(host=host,user=user,passwd=passwd,db=dbname)
         return mysqlconn.open
     except:
         # FIXME: log error
@@ -71,9 +80,8 @@ def register():
     The mandatory cobbler module registration hook.
     """
     # FIXME: only run this if enabled.
-    if not mysql_loaded:
+    if not mysql_loaded or not __connect():
         return ""
-    __connect()
     return "serializer"
  
 def what():
@@ -162,5 +170,4 @@ def __depth_cmp(item1, item2):
  
 if __name__ == "__main__":
     print deserialize_item_raw("distro","D1")
- 
  
