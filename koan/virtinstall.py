@@ -56,6 +56,10 @@ def _sanitize_disks(disks):
 def _sanitize_nics(nics, bridge, profile_bridge, network_count):
     ret = []
 
+    default_bridge = bridge
+    if not default_bridge:
+        default_bridge = profile_bridge
+
     if network_count is not None and not nics:
         # Fill in some stub nics so we can take advantage of the loop logic
         nics = {}
@@ -63,7 +67,7 @@ def _sanitize_nics(nics, bridge, profile_bridge, network_count):
             nics["foo%s" % i] = {
                 "interface_type" : "na",
                 "mac_address": None,
-                "virt_bridge": None,
+                "virt_bridge": default_bridge,
             }
 
     if not nics:
@@ -231,7 +235,6 @@ def build_commandline(uri,
             raise koan.InfoException("virt-bridge setting is not defined in cobbler")
         nics = [(bridge, None)]
 
-
     kernel = profile_data.get("kernel_local")
     initrd = profile_data.get("initrd_local")
     breed = profile_data.get("breed")
@@ -285,7 +288,7 @@ def build_commandline(uri,
         elif oldstyle_accelerate:
             cmd += "--accelerate "
 
-        if is_qemu and extra and not virt_pxe_boot:
+        if is_qemu and location and extra and not virt_pxe_boot:
             cmd += ("--extra-args=\"%s\" " % (extra))
 
         if virt_pxe_boot or is_xen:

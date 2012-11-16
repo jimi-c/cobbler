@@ -154,7 +154,7 @@ class Image(item.Item):
         Indicates what type of image this is.
         direct     = something like "memdisk", physical only
         iso        = a bootable ISO that pxe's or can be used for virt installs, virtual only
-        virt-clone = a cloned virtual disk (FIXME: not yet supported), virtual only
+        virt-image = a cloned virtual disk (FIXME: not yet supported), virtual only
         memdisk    = hdd image (physical only)
         """
         if not image_type in self.get_valid_image_types():
@@ -196,7 +196,7 @@ class Image(item.Item):
         return utils.set_virt_path(self,path)
 
     def get_valid_image_types(self):
-        return ["direct","iso","memdisk","virt-clone"]
+        return ["direct","iso","memdisk","virt-image"]
 
     def get_parent(self):
         """

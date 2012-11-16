@@ -1465,7 +1465,7 @@ class Koan:
     def virt_choose(self, pd):
         fullvirt = False
         can_poll = None
-        if (self.image is not None) and (pd["image_type"] == "virt-clone"):
+        if (self.image is not None) and (pd["image_type"] == "virt-image"):
             fullvirt = True
             uuid = None
             import imagecreate
