@@ -31,7 +31,7 @@ from cexceptions import *
 import clogger
 import fnmatch
 
-OBJ_TYPES = [ "distro", "profile", "system", "repo", "image", "mgmtclass", "package", "file" ]
+OBJ_TYPES = [ "distro", "profile", "system", "repo", "image", "mgmtclass", "package", "file", "platform" ]
 
 class Replicate:
 
@@ -230,7 +230,8 @@ class Replicate:
             "repo"      : {},
             "mgmtclass" : {},
             "package"   : {},
-            "file"      : {}
+            "file"      : {},
+            "platform"  : {},
         }
 
         for ot in OBJ_TYPES:
@@ -310,7 +311,7 @@ class Replicate:
     # -------------------------------------------------------
 
     def run(self, cobbler_master=None, distro_patterns=None, profile_patterns=None, system_patterns=None, repo_patterns=None, image_patterns=None, 
-            mgmtclass_patterns=None, package_patterns=None, file_patterns=None, prune=False, omit_data=False, sync_all=False):
+            mgmtclass_patterns=None, package_patterns=None, file_patterns=None, platform_patterns=None, prune=False, omit_data=False, sync_all=False):
         """
         Get remote profiles and distros and sync them locally
         """
@@ -323,6 +324,7 @@ class Replicate:
         self.mgmtclass_patterns  = mgmtclass_patterns.split()
         self.package_patterns    = package_patterns.split()
         self.file_patterns       = file_patterns.split()
+        self.platform_patterns   = platform_patterns.split()
         self.omit_data           = omit_data
         self.prune               = prune
         self.sync_all            = sync_all
@@ -335,6 +337,7 @@ class Replicate:
         self.logger.info("mgmtclass_patterns  = %s" % self.mgmtclass_patterns)
         self.logger.info("package_patterns    = %s" % self.package_patterns)
         self.logger.info("file_patterns       = %s" % self.file_patterns)
+        self.logger.info("platform_patterns   = %s" % self.platform_patterns)
         self.logger.info("omit_data           = %s" % self.omit_data)
         self.logger.info("sync_all            = %s" % self.sync_all)
 

@@ -41,6 +41,7 @@ import cobbler.item_image     as item_image
 import cobbler.item_mgmtclass as item_mgmtclass
 import cobbler.item_package   as item_package
 import cobbler.item_file      as item_file
+import cobbler.item_platform  as item_platform
 import cobbler.settings       as item_settings
 import cobbler.field_info     as field_info
 import cobbler.utils          as utils
@@ -124,6 +125,8 @@ def get_fields(what, is_subobject, seed_item=None):
         field_data = item_package.FIELDS
     if what == "file":
         field_data = item_file.FIELDS
+    if what == "platform":
+        field_data = item_platform.FIELDS
     if what == "setting":
         field_data = item_settings.FIELDS
 
@@ -283,7 +286,7 @@ def __format_items(items, column_names):
         for fieldname in column_names:
             if fieldname == "name":
                 html_element = "name"
-            elif fieldname in [ "system", "repo", "distro", "profile", "image", "mgmtclass", "package", "file" ]:
+            elif fieldname in [ "system", "repo", "distro", "profile", "image", "mgmtclass", "package", "file", "platform" ]:
                 html_element = "editlink"
             elif fieldname in field_info.USES_CHECKBOX:
                 html_element = "checkbox"
@@ -355,6 +358,8 @@ def genlist(request, what, page=None):
     if what == "package":
         columns = [ "name", "installer" ]
     if what == "file":
+        columns = [ "name" ]
+    if what == "platform":
         columns = [ "name" ]
 
     # render the list

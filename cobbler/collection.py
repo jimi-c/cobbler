@@ -37,6 +37,7 @@ import item_image
 import item_mgmtclass
 import item_package
 import item_file
+import item_platform
 from utils import _
 
 class Collection:
@@ -348,6 +349,8 @@ class Collection:
                     pass
                 elif isinstance(ref, item_file.File):
                     pass
+                elif isinstance(ref, item_platform.Platform):
+                    pass
                 else:
                     print _("Internal error. Object type not recognized: %s") % type(ref)
             if not with_sync and quick_pxe_update:
@@ -393,6 +396,8 @@ class Collection:
                 match = self.api.find_package(ref.name)
             elif isinstance(ref, item_file.File):
                 match = self.api.find_file(ref.name)
+            elif isinstance(ref, item_platform.Platform):
+                match = self.api.find_platform(ref.name)
             else:
                 raise CX("internal error, unknown object type")
 

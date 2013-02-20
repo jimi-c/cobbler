@@ -35,6 +35,7 @@ import item_image as image
 import item_mgmtclass as mgmtclass
 import item_package as package
 import item_file as file
+import item_platform as platform
 
 import collection_distros as distros
 import collection_profiles as profiles
@@ -44,6 +45,7 @@ import collection_images as images
 import collection_mgmtclasses as mgmtclasses
 import collection_packages as packages
 import collection_files as files
+import collection_platforms as platforms
 
 import settings
 import serializer
@@ -85,6 +87,7 @@ class Config:
        self._mgmtclasses  = mgmtclasses.Mgmtclasses(weakref.proxy(self))
        self._packages     = packages.Packages(weakref.proxy(self))
        self._files        = files.Files(weakref.proxy(self))
+       self._platforms    = platforms.Platforms(weakref.proxy(self))
        self._settings     = settings.Settings() # not a true collection
 
    def generate_uid(self):
@@ -154,6 +157,12 @@ class Config:
        """
        return self._files
 
+   def platforms(self):
+       """
+       Return the definitive copy of the Platforms collection
+       """
+       return self._platforms
+
    def new_distro(self,is_subobject=False):
        """
        Create a new distro object with a backreference to this object
@@ -202,6 +211,12 @@ class Config:
        """
        return file.File(weakref.proxy(self),is_subobject=is_subobject)
 
+   def new_platform(self,is_subobject=False):
+       """
+       Create a new platform object...
+       """
+       return platform.Platform(weakref.proxy(self),is_subobject=is_subobject)
+
    def clear(self):
        """
        Forget about all loaded configuration data
@@ -215,6 +230,7 @@ class Config:
        self._mgmtclasses.clear(),
        self._packages.clear(),
        self._files.clear(),
+       self._platforms.clear(),
        return True
 
    def serialize(self):
@@ -229,6 +245,7 @@ class Config:
        serializer.serialize(self._mgmtclasses)
        serializer.serialize(self._packages)
        serializer.serialize(self._files)
+       serializer.serialize(self._platforms)
        return True
 
    def serialize_item(self,collection,item):
@@ -259,6 +276,7 @@ class Config:
            self._mgmtclasses,
            self._packages,
            self._files,
+           self._platforms,
            ]:
            try:
                if not serializer.deserialize(item): raise ""
@@ -295,6 +313,8 @@ class Config:
             result=self._packages
         elif collection_type == "file":
             result=self._files
+        elif collection_type == "platform":
+            result=self._platforms
         elif collection_type == "settings":
             result=self._settings
         else:

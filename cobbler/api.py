@@ -39,6 +39,7 @@ import action_power
 import action_log
 import action_hardlink
 import action_dlcontent
+import action_deploy
 from cexceptions import *
 import module_loader
 import kickgen
@@ -66,6 +67,7 @@ import item_image
 import item_mgmtclass
 import item_package
 import item_file
+import item_platform
 
 ERROR = 100
 INFO  = 10
@@ -321,6 +323,13 @@ class BootAPI:
         """
         return self.get_items("file")
 
+    def platforms(self):
+        """
+        Return the current list of platforms
+        """
+        return self.get_items("platform")
+
+
     # =======================================================================
 
     def update(self):
@@ -360,6 +369,9 @@ class BootAPI:
     def copy_file(self, ref, newname):
         return self.copy_item("file", ref, newname, logger=None)
 
+    def copy_platform(self, ref, newname):
+        return self.copy_item("platform", ref, newname, logger=None)
+    
     # ==========================================================================
 
     def remove_item(self, what, ref, recursive=False, delete=True, with_triggers=True, logger=None):
@@ -395,6 +407,9 @@ class BootAPI:
     def remove_file(self, ref, recursive=False, delete=True, with_triggers=True, logger=None):
         return self.remove_item("file", ref, recursive=recursive, delete=delete, with_triggers=with_triggers, logger=logger)
 
+    def remove_platform(self, ref, recursive=False, delete=True, with_triggers=True, logger=None):
+        return self.remove_item("platform", ref, recursive=recursive, delete=delete, with_triggers=with_triggers, logger=logger)
+    
     # ==========================================================================
 
     def rename_item(self, what, ref, newname, logger=None):
@@ -425,6 +440,9 @@ class BootAPI:
     def rename_file(self, ref, newname, logger=None):
         return self.rename_item("file", ref, newname, logger=logger)
 
+    def rename_platform(self, ref, newname, logger=None):
+        return self.rename_item("platform", ref, newname, logger=logger)
+    
     # ==========================================================================
    
     # FIXME: add a new_item method
@@ -461,6 +479,10 @@ class BootAPI:
         self.log("new_file",[is_subobject])
         return self._config.new_file(is_subobject=is_subobject)
 
+    def new_platform(self,is_subobject=False):
+        self.log("new_platform",[is_subobject])
+        return self._config.new_platform(is_subobject=is_subobject)
+    
     # ==========================================================================
 
     def add_item(self, what, ref, check_for_duplicate_names=False, save=True,logger=None):
@@ -491,6 +513,9 @@ class BootAPI:
     def add_file(self, ref, check_for_duplicate_names=False,save=True, logger=None):
         return self.add_item("file", ref, check_for_duplicate_names=check_for_duplicate_names, save=save,logger=logger)
 
+    def add_platform(self, ref, check_for_duplicate_names=False,save=True, logger=None):
+        return self.add_item("platform", ref, check_for_duplicate_names=check_for_duplicate_names, save=save,logger=logger)
+    
     # ==========================================================================
 
     # FIXME: find_items should take all the arguments the other find
@@ -534,6 +559,9 @@ class BootAPI:
     def find_file(self, name=None, return_list=False, no_errors=False, **kargs):
         return self._config.files().find(name=name, return_list=return_list, no_errors=no_errors, **kargs)
 
+    def find_platform(self, name=None, return_list=False, no_errors=False, **kargs):
+        return self._config.platforms().find(name=name, return_list=return_list, no_errors=no_errors, **kargs)
+    
     # ==========================================================================
 
     def __since(self,mtime,collector,collapse=False):
@@ -578,6 +606,9 @@ class BootAPI:
     def get_files_since(self,mtime,collapse=False):
         return self.__since(mtime,self.files,collapse=collapse)
 
+    def get_platforms_since(self,mtime,collapse=False):
+        return self.__since(mtime,self.platforms,collapse=collapse)
+    
     # ==========================================================================
 
     def get_signatures(self):
@@ -1016,6 +1047,17 @@ class BootAPI:
 
     # ==========================================================================
 
+    def deploy(self,system=None,profile=None,directory=None,skip_build=False,logger=None):
+        builder = action_deploy.Deploy(self._config, logger=logger)
+        return builder.run(
+           system=system,
+           profile=profile,
+           directory=directory,
+           skip_build=skip_build,
+        )
+
+    # ==========================================================================
+
     def hardlink(self, logger=None):
         linker = action_hardlink.HardLinker(self._config, logger=logger)
         return linker.run()
@@ -1023,7 +1065,7 @@ class BootAPI:
     # ==========================================================================
 
     def replicate(self, cobbler_master = None, distro_patterns="", profile_patterns="", system_patterns="", repo_patterns="", image_patterns="",
-                  mgmtclass_patterns=None, package_patterns=None, file_patterns=None, prune=False, omit_data=False, sync_all=False, logger=None):
+                  mgmtclass_patterns=None, package_patterns=None, file_patterns=None, platform_patterns=None, prune=False, omit_data=False, sync_all=False, logger=None):
         """
         Pull down data/configs from a remote cobbler server that is a master to this server.
         """
@@ -1038,6 +1080,7 @@ class BootAPI:
               mgmtclass_patterns   = mgmtclass_patterns,
               package_patterns     = package_patterns,
               file_patterns        = file_patterns,
+              platform_patterns    = platform_patterns,
               prune                = prune,
               omit_data            = omit_data,
               sync_all             = sync_all

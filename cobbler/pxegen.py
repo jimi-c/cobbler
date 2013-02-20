@@ -601,22 +601,17 @@ class PXEGen:
             metadata["initrd_path"] = initrd_path
 
         # generate the kernel options and append line:
-        kernel_options = self.build_kernel_options(system, profile, distro,
-                image, arch, kickstart_path)
+        kernel_options = self.build_kernel_options(system,profile,distro,image,arch,kickstart_path)
         metadata["kernel_options"] = kernel_options
 
+        append_line = ""
         if distro and distro.os_version.startswith("esxi") and filename is not None:
-            append_line = "BOOTIF=%s" % (os.path.basename(filename))
+            append_line = "BOOTIF=%s " % (os.path.basename(filename))
         elif metadata.has_key("initrd_path") and (not arch or arch not in ["ia64", "ppc", "ppc64", "arm"]):
-            append_line = "append initrd=%s" % (metadata["initrd_path"])
-        else:
+            append_line = "append initrd=%s " % (metadata["initrd_path"])
+        elif not arch.startswith("ppc") and not arch.startswith("s390"):
             append_line = "append "
         append_line = "%s%s" % (append_line, kernel_options)
-        if arch.startswith("ppc") or arch.startswith("s390"):
-            # remove the prefix "append"
-            # TODO: this looks like it's removing more than append, really
-            # not sure what's up here...
-            append_line = append_line[7:]
         metadata["append_line"] = append_line
 
         # store variables for templating

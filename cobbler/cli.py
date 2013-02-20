@@ -38,6 +38,7 @@ import item_image
 import item_mgmtclass
 import item_package
 import item_file
+import item_platform
 import settings
 
 OBJECT_ACTIONS_MAP   = {
@@ -49,6 +50,7 @@ OBJECT_ACTIONS_MAP   = {
    "mgmtclass" : "add copy edit find list remove rename report".split(" "),
    "package"   : "add copy edit find list remove rename report".split(" "),
    "file"      : "add copy edit find list remove rename report".split(" "),
+   "platform"  : "add copy edit find list remove rename report".split(" "),
    "setting"   : "edit report".split(" "),
    "signature" : "reload report update".split(" "),
 } 
@@ -57,7 +59,7 @@ OBJECT_TYPES = OBJECT_ACTIONS_MAP.keys()
 OBJECT_ACTIONS = []
 for actions in OBJECT_ACTIONS_MAP.values():
    OBJECT_ACTIONS += actions
-DIRECT_ACTIONS = "aclsetup buildiso import list replicate report reposync sync validateks version".split()
+DIRECT_ACTIONS = "aclsetup buildiso deploy import list replicate report reposync sync validateks version".split()
 
 ####################################################
 
@@ -151,6 +153,8 @@ def report_item(remote,otype,item=None,name=None):
       data = utils.printable_from_fields(item,item_package.FIELDS)
    elif otype == "file":
       data = utils.printable_from_fields(item,item_file.FIELDS)
+   elif otype == "platform":
+      data = utils.printable_from_fields(item,item_platform.FIELDS)
    elif otype == "setting":
       data = "%-40s: %s" % (item['name'],item['value'])
    print data
@@ -331,6 +335,8 @@ class BootCLI:
             return item_package.FIELDS
         elif object_type == "file":
             return item_file.FIELDS
+        elif object_type == "platform":
+            return item_platform.FIELDS
         elif object_type == "setting":
             return settings.FIELDS
 
@@ -502,13 +508,33 @@ class BootCLI:
             self.parser.add_option("--arch",         dest="arch",           help="OS architecture being imported")
             self.parser.add_option("--breed",        dest="breed",          help="the breed being imported")
             self.parser.add_option("--os-version",   dest="os_version",     help="the version being imported")
-            self.parser.add_option("--path",         dest="path",         help="local path or rsync location")
+            self.parser.add_option("--path",         dest="path",           help="local path or rsync location")
             self.parser.add_option("--name",         dest="name",           help="name, ex 'RHEL-5'")
             self.parser.add_option("--available-as", dest="available_as",   help="tree is here, don't mirror")
             self.parser.add_option("--kickstart",    dest="kickstart_file", help="assign this kickstart file")
             self.parser.add_option("--rsync-flags",  dest="rsync_flags",    help="pass additional flags to rsync")
             (options, args) = self.parser.parse_args()
             task_id = self.start_task("import",options)
+        elif action_name == "deploy":
+            self.parser.add_option("--profile", 
+              dest="profile", 
+              help="the profile to deploy"
+            )
+            self.parser.add_option("--system", 
+              dest="system", 
+              help="the system to deploy"
+            )
+            self.parser.add_option("--directory", 
+              dest="directory", 
+              help="the output directory for the rendered image"
+            )
+            self.parser.add_option("--skip-build", 
+              dest="skip_build", 
+              help="skip the build stage if the image already exists",
+              action="store_true"
+            )
+            (options, args) = self.parser.parse_args()
+            task_id = self.start_task("deploy",options)
         elif action_name == "reposync":
             self.parser.add_option("--only",           dest="only",             help="update only this repository name")
             self.parser.add_option("--tries",          dest="tries",            help="try each repo this many times", default=1)
@@ -553,6 +579,8 @@ class BootCLI:
             report_items(self.remote,"package")
             print "\nfiles:\n=========="
             report_items(self.remote,"file")
+            print "\nplatforms:\n=========="
+            report_items(self.remote,"platform")
         elif action_name == "list":
             # no tree view like 1.6?  This is more efficient remotely
             # for large configs and prevents xfering the whole config
@@ -574,6 +602,8 @@ class BootCLI:
             list_items(self.remote,"package")
             print "\nfiles:"
             list_items(self.remote,"file")
+            print "\nplatforms:"
+            list_items(self.remote,"platform")
         else:
             print "No such command: %s" % action_name
             sys.exit(1)
@@ -638,7 +668,7 @@ class BootCLI:
         Prints general-top level help, e.g. "cobbler --help" or "cobbler" or "cobbler command-does-not-exist"
         """
         print "usage\n====="
-        print "cobbler <distro|profile|system|repo|image|mgmtclass|package|file> ... "
+        print "cobbler <distro|profile|system|repo|image|mgmtclass|package|file|platform> ... "
         print "        [add|edit|copy|getks*|list|remove|rename|report] [options|--help]"
         print "cobbler <%s> [options|--help]" % "|".join(DIRECT_ACTIONS)
         sys.exit(2)

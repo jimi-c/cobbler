@@ -259,6 +259,8 @@ if __name__ == "__main__":
             ("%striggers/add/package/post" % libpath,     []),
             ("%striggers/add/file/pre" % libpath,         []),
             ("%striggers/add/file/post" % libpath,        []),
+            ("%striggers/add/platform/pre" % libpath,     []),
+            ("%striggers/add/platform/post" % libpath,    []),
             ("%striggers/delete/distro/pre" % libpath,    []),
             ("%striggers/delete/distro/post" % libpath,   []),
             ("%striggers/delete/profile/pre" % libpath,   []),
@@ -273,6 +275,8 @@ if __name__ == "__main__":
             ("%striggers/delete/package/post" % libpath,  []),
             ("%striggers/delete/file/pre" % libpath,      []),
             ("%striggers/delete/file/post" % libpath,     []),
+            ("%striggers/delete/platform/pre" % libpath,  []),
+            ("%striggers/delete/platform/post" % libpath, []),
             ("%striggers/install/pre" % libpath,          []),
             ("%striggers/install/post" % libpath,         []),
             ("%striggers/install/firstboot" % libpath,    []),
@@ -290,6 +294,7 @@ if __name__ == "__main__":
             ("%sconfig/mgmtclasses.d" % libpath, []),
             ("%sconfig/packages.d" % libpath,    []),
             ("%sconfig/files.d" % libpath,       []),
+            ("%sconfig/platforms.d" % libpath, []),
             
             #Build empty directories to hold koan localconfig
             ("/var/lib/koan/config",             []),

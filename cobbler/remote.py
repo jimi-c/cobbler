@@ -42,6 +42,7 @@ import item_image
 import item_mgmtclass
 import item_package
 import item_file
+import item_platform
 import clogger
 import pxegen
 import utils
@@ -211,6 +212,7 @@ class CobblerXMLRPCInterface:
                 self.options.get("mgmtclass_patterns", ""),
                 self.options.get("package_patterns", ""),
                 self.options.get("file_patterns", ""),
+                self.options.get("platform_patterns", ""),
                 self.options.get("prune", False),
                 self.options.get("omit_data", False),
                 self.options.get("sync_all", False),
@@ -232,7 +234,20 @@ class CobblerXMLRPCInterface:
                 self.logger
             ) 
         return self.__start_task(runner, token, "import", "Media import", options)
-                     
+
+    def background_deploy(self, options, token):
+        """
+        """
+        def runner(self):
+            return self.remote.api.deploy(
+                self.options.get("system",None),
+                self.options.get("profile",None),
+                self.options.get("directory",None),
+                self.options.get("skip_build",False),
+                self.logger
+            )
+        return self.__start_task(runner, token, "deploy", "Deploying", options)
+
     def background_reposync(self, options, token):
         def runner(self):
             # NOTE: WebUI passes in repos here, CLI passes only:
@@ -556,6 +571,8 @@ class CobblerXMLRPCInterface:
         return self.get_package("package",name,flatten=flatten)
     def get_file(self,name,flatten=False,token=None,**rest):
         return self.get_file("file",name,flatten=flatten)
+    def get_platform(self,name,flatten=False,token=None,**rest):
+        return self.get_platform("platform",name,flatten=flatten)
 
     def get_items(self, what):
         """
@@ -590,6 +607,8 @@ class CobblerXMLRPCInterface:
         return self.get_items("package")
     def get_files(self,page=None,results_per_page=None,token=None,**rest):
         return self.get_items("file")
+    def get_platform(self,page=None,results_per_page=None,token=None,**rest):
+        return self.get_items("platform")
 
     def find_items(self, what, criteria=None,sort_field=None,expand=True):
         """
@@ -623,6 +642,8 @@ class CobblerXMLRPCInterface:
         return self.find_items("package",criteria,expand=expand)
     def find_file(self,criteria={},expand=False,token=None,**rest):
         return self.find_items("file",criteria,expand=expand)
+    def find_platform(self,criteria={},expand=False,token=None,**rest):
+        return self.find_items("platform",criteria,expand=expand)
 
     def find_items_paged(self, what, criteria=None, sort_field=None, page=None, items_per_page=None, token=None):
         """
@@ -680,6 +701,8 @@ class CobblerXMLRPCInterface:
         return self.get_item_handle("package",name,token)
     def get_file_handle(self,name,token):
         return self.get_item_handle("file",name,token)
+    def get_platform_handle(self,name,token):
+        return self.get_item_handle("platform",name,token)
         
     def remove_item(self,what,name,token,recursive=True):
         """
@@ -706,6 +729,8 @@ class CobblerXMLRPCInterface:
         return self.remove_item("package",name,token,recursive)
     def remove_file(self,name,token,recursive=1):
         return self.remove_item("file",name,token,recursive)
+    def remove_platform(self,name,token,recursive=1):
+        return self.remove_item("platform",name,token,recursive)
 
     def copy_item(self,what,object_id,newname,token=None):
         """
@@ -732,6 +757,8 @@ class CobblerXMLRPCInterface:
         return self.copy_item("package",object_id,newname,token)
     def copy_file(self,object_id,newname,token=None):
         return self.copy_item("file",object_id,newname,token)
+    def copy_platform(self,object_id,newname,token=None):
+        return self.copy_item("platform",object_id,newname,token)
     
     def rename_item(self,what,object_id,newname,token=None):
         """
@@ -757,6 +784,8 @@ class CobblerXMLRPCInterface:
         return self.rename_item("package",object_id,newname,token)
     def rename_file(self,object_id,newname,token=None):
         return self.rename_item("file",object_id,newname,token)
+    def rename_platform(self,object_id,newname,token=None):
+        return self.rename_item("platform",object_id,newname,token)
     
     def new_item(self,what,token,is_subobject=False):
         """
@@ -784,6 +813,8 @@ class CobblerXMLRPCInterface:
             d = item_package.Package(self.api._config,is_subobject=is_subobject)
         elif what == "file":
             d = item_file.File(self.api._config,is_subobject=is_subobject)
+        elif what == "platform":
+            d = item_platform.Platform(self.api._config,is_subobject=is_subobject)
         else:
             raise CX("internal error, collection name is %s" % what)
         key = "___NEW___%s::%s" % (what,self.__get_random(25))
@@ -808,6 +839,8 @@ class CobblerXMLRPCInterface:
         return self.new_item("package",token)
     def new_file(self,token):
         return self.new_item("file",token)
+    def new_platform(self,token):
+        return self.new_item("platform",token)
 
     def modify_item(self,what,object_id,attribute,arg,token):
         """
@@ -844,6 +877,9 @@ class CobblerXMLRPCInterface:
         return self.modify_item("package",object_id,attribute,arg,token)
     def modify_file(self,object_id,attribute,arg,token):
         return self.modify_item("file",object_id,attribute,arg,token)
+    def modify_platform(self,object_id,attribute,arg,token):
+        return self.modify_item("platform",object_id,attribute,arg,token)
+
     def modify_setting(self,setting_name,value,token):
         try:
             self.api.settings().set(setting_name, value)
@@ -973,6 +1009,8 @@ class CobblerXMLRPCInterface:
         return self.save_item("package",object_id,token,editmode=editmode)
     def save_file(self,object_id,token,editmode="bypass"):
         return self.save_item("file",object_id,token,editmode=editmode)
+    def save_platform(self,object_id,token,editmode="bypass"):
+        return self.save_item("platform",object_id,token,editmode=editmode)
 
     def get_kickstart_templates(self,token=None,**rest):
         """
@@ -1397,6 +1435,13 @@ class CobblerXMLRPCInterface:
         data = self.api.get_files_since(mtime, collapse=True)
         return self.xmlrpc_hacks(data)
     
+    def get_platforms_since(self,mtime):
+        """
+        See documentation for get_distros_since
+        """
+        data = self.api.get_platforms_since(mtime, collapse=True)
+        return self.xmlrpc_hacks(data)
+    
     def get_repos_compatible_with_profile(self,profile=None,token=None,**rest):
         """
         Get repos that can be used with a given profile name
@@ -1608,6 +1653,25 @@ class CobblerXMLRPCInterface:
             return self.xmlrpc_hacks(utils.blender(self.api, True, obj))
         return self.xmlrpc_hacks({})
 
+    def get_platform_as_rendered(self,name,token=None,**rest):
+        """
+        Return the platform as passed through cobbler's
+        inheritance/graph engine.  Shows what would be installed, not
+        the input data.
+        """
+        return self.get_platform_for_koan(self,name)
+
+    def get_platform_for_koan(self,name,token=None,**rest):
+        """
+        Same as get_platform_as_rendered.
+        """
+        self._log("get_platform_as_rendered",name=name,token=token)
+        obj = self.api.find_platform(name=name)
+        if obj is not None:
+            return self.xmlrpc_hacks(utils.blender(self.api, True, obj))
+        return self.xmlrpc_hacks({})
+   
+
     def get_random_mac(self,virt_type="xenpv",token=None,**rest):
         """
         Wrapper for utils.get_random_mac
@@ -1725,6 +1789,8 @@ class CobblerXMLRPCInterface:
             return self.api.find_package(name)
         if resource.find("file") != -1:
             return self.api.find_file(name)
+        if resource.find("platform") != -1:
+            return self.api.find_platform(name)
         return None
 
     def check_access_no_fail(self,token,resource,arg1=None,arg2=None):
@@ -1736,7 +1802,7 @@ class CobblerXMLRPCInterface:
         """
 
         need_remap = False
-        for x in [ "distro", "profile", "system", "repo", "image", "mgmtclass", "package", "file" ]:
+        for x in [ "distro", "profile", "system", "repo", "image", "mgmtclass", "package", "file", "platform" ]:
            if arg1 is not None and resource.find(x) != -1:
               need_remap = True
               break

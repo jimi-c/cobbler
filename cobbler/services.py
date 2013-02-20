@@ -175,6 +175,8 @@ class CobblerSvc(object):
            listing = self.remote.get_packages()
         elif what == "files":
            listing = self.remote.get_files()
+        elif what == "platforms":
+           listing = self.remote.get_platforms()
         else:
            return "?"
         for x in listing:

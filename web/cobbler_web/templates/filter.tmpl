@@ -142,6 +142,7 @@ function del_filter(filter) {
       <option value="owners">owners</option>
       <option value="packages">packages</option>
       <option value="files">files</option>{% endifequal %}
+      {% ifequal what "mgmtclass" %}<option value="envfile">envfile</option>{% endifequal %}
       {% ifequal what "network" %}<option value="address">address</option>
       <option value="broadcast">broadcast</option>
       <option value="cidr">cidr</option>
