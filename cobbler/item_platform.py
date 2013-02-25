@@ -20,6 +20,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 
 import utils
 import item
+import os
 from cexceptions import CX
 from utils import _
 
@@ -28,11 +29,12 @@ from utils import _
 FIELDS = [
     ["uid","",0,"",False,"",0,"str"],
     ["name","",0,"Name",True,"Ex: Amazon EC2",0,"str"],
+    ["type","libvirt",0,"Platform Type",True,"What is the platform type?",utils.get_valid_platforms(),"str"],
+    ["envfile","",0,"Environment File",True,"Ex: /var/lib/cobbler/platforms/ec2/eucarc",0,"str"],
     ["owners","SETTINGS:default_ownership","SETTINGS:default_ownership","Owners",True,"Owners list for authz_ownership (space delimited)",0,"list"],
     ["comment","",0,"Comment",True,"Free form text description",0,"str"],
     ["ctime",0,0,"",False,"",0,"int"],
     ["mtime",0,0,"",False,"",0,"int"],
-    ["envfile","",0,"Environment File",True,"Ex: /var/lib/cobbler/platforms/ec2/eucarc",0,"str"],
 ]
 
 class Platform(item.Item):
@@ -46,8 +48,15 @@ class Platform(item.Item):
         cloned.from_datastruct(ds)
         return cloned
 
+    def set_type(self,type):
+        if type not in utils.get_valid_platforms():
+            raise CX(_("%s is not a valid platform, must be one of %s") % (type,str(utils.get_valid_platforms())))
+        self.type = type
+
     def set_envfile(self,envfile):
-        return
+        if not os.path.exists(envfile):
+            raise CX(_("the file '%s' does not appear to exist") % (envfile))
+        self.envfile = envfile
 
     def get_fields(self):
         return FIELDS

@@ -524,6 +524,10 @@ class BootCLI:
               dest="system", 
               help="the system to deploy"
             )
+            self.parser.add_option("--platform", 
+              dest="platform", 
+              help="the target platform for deployment"
+            )
             self.parser.add_option("--directory", 
               dest="directory", 
               help="the output directory for the rendered image"

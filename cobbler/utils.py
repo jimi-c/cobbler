@@ -1724,7 +1724,7 @@ def is_remote_file(file):
     else:
        return False
 
-def subprocess_sp(logger, cmd, shell=True, input=None):
+def subprocess_sp(logger, cmd, shell=True, quiet=True, input=None):
     if logger is not None:
         logger.info("running: %s" % cmd)
 
@@ -1741,17 +1741,17 @@ def subprocess_sp(logger, cmd, shell=True, input=None):
 
     (out,err) = sp.communicate(input)
     rc = sp.returncode
-    if logger is not None:
+    if logger is not None and not quiet:
         logger.info("received on stdout: %s" % out)
         logger.debug("received on stderr: %s" % err)
     return out, rc
 
-def subprocess_call(logger, cmd, shell=True, input=None):
-    data, rc = subprocess_sp(logger, cmd, shell=shell, input=input)
+def subprocess_call(logger, cmd, shell=True, quiet=True, input=None):
+    data, rc = subprocess_sp(logger, cmd, shell=shell, quiet=quiet, input=input)
     return rc
 
-def subprocess_get(logger, cmd, shell=True, input=None):
-    data, rc = subprocess_sp(logger, cmd, shell=shell, input=input)
+def subprocess_get(logger, cmd, shell=True, quiet=True, input=None):
+    data, rc = subprocess_sp(logger, cmd, shell=shell, quiet=quiet, input=input)
     return data
 
 def popen2(args, **kwargs):
@@ -2083,6 +2083,12 @@ def get_valid_os_versions():
     except:
         pass
     return uniquify(os_versions)
+
+def get_valid_platforms():
+    """
+    Return a list of IaaS platforms we support
+    """
+    return ["libvirt","eucalyptus","ec2","openstack"]
 
 def get_shared_secret():
     """

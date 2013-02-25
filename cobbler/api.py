@@ -1047,11 +1047,12 @@ class BootAPI:
 
     # ==========================================================================
 
-    def deploy(self,system=None,profile=None,directory=None,skip_build=False,logger=None):
+    def deploy(self,system=None,profile=None,platform=None,directory=None,skip_build=False,logger=None):
         builder = action_deploy.Deploy(self._config, logger=logger)
         return builder.run(
            system=system,
            profile=profile,
+           platform=platform,
            directory=directory,
            skip_build=skip_build,
         )

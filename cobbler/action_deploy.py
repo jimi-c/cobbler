@@ -22,6 +22,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 import guestfs
 import parted
 import os.path
+import re
 import shlex
 import subprocess
 import sys
@@ -54,32 +55,34 @@ class Deploy:
         self.logger      = logger
         self.pxe         = pxegen.PXEGen(self.config,self.logger)
 
-
-    # TODO
-    # add a timeout argument
-    # add an option to skip kernel bundle
-    # add a target cloud environment argument
-    def run(self,system=None,profile=None,directory=None,skip_build=False):
-        if not system and not profile:
+    #--------------------------------------------------------------------------------
+    # Helper functions
+    #--------------------------------------------------------------------------------
+ 
+    def source_envfile(self,envfile):
+        """
+        Sources a bash resource file, based on the example here:
+        http://stackoverflow.com/questions/3503719/emulating-bash-source-in-python
+        """
+        if not os.path.exists(envfile):
+            self.logger.info("The specified envfile ('%s') does not exist" % envfile)
             return False
 
-        if not directory:
-            directory = "/tmp"
-        else:
-            if not os.path.exists(directory) and not os.path.isdir(directory):
-                self.logger.error("ERROR: the output directory (%s) specified is invalid")
-                return False
+        lines = utils.subprocess_get(self.logger,shlex.split("bash -c 'source %s && env'" % envfile),shell=False)
+        for line in lines.split("\n"):
+            (key, _, value) = line.partition("=")
+            os.putenv(key,value)
+        self.logger.info("Successfully sourced %s" % envfile)
+        return True
 
-        system = self.api.get_item("system",system)
-        profile = system.get_parent()
-        distro = profile.get_parent()
-        while distro.TYPE_NAME != "distro":
-            distro = distro.get_parent()
-
-        self.logger.debug("deploy system  : %s" % system.name)
-        self.logger.debug("deploy profile : %s" % profile.name)
-        self.logger.debug("deploy distro  : %s" % distro.name)
-
+    #--------------------------------------------------------------------------------
+    # Functions for Eucalyptus/Amazon EC2
+    #--------------------------------------------------------------------------------
+ 
+    def build_machine_image(self,system,profile,distro,platform,directory):
+        """
+        Builds an emi/ami compliant image for use with euca2ools
+        """
         num_cpu = int(system.virt_cpus)
         num_ram = int(system.virt_ram)
 
@@ -108,6 +111,7 @@ class Deploy:
 
         for cmd in (["qemu-img creation",qemu_img_cmd],["qemu-kvm build",qemu_kvm_cmd]):
             self.logger.debug("Running %s" % cmd[0])
+            # TODO: this should be a call to utils.subprocess_call
             po = subprocess.Popen(cmd[1])
             while po.poll() == None:
                 time.sleep(1)
@@ -117,12 +121,9 @@ class Deploy:
                 return False
 
             self.logger.info("%s ok" % cmd[0])
-        
-        # TODO
-        # use guest fs to extract the kernel
-        # call euca-bundle-image to bundle the image and kernel files
-        # call euca-upload-bundle to upload the image and kernel files
-        # call euca-register to register the image and kernel files
+    
+        # TODO:
+        # use guest fs to extract the kernel and initrd
         # if a system, call euca-run-instance 
 
         self.logger.debug("Making modifications to the generated image...")
@@ -153,13 +154,83 @@ class Deploy:
 
         dd_cmd = shlex.split("dd if=%s/%s.img of=%s/%s-rootfs.img bs=%d skip=%d count=%d" % (directory,system.name,directory,system.name,bsize,offset,length))
         self.logger.debug("Running '%s'" % dd_cmd)
+        # TODO: this should be run by utils.subprocess_get
         po = subprocess.Popen(dd_cmd)
         while po.poll() == None:
             time.sleep(1)
 
-        #if po.returncode != 0:
-        #    self.logger.error("The dd command failed, bailing out")
-        #    return False
+        # TODO: parse the dd output for the number of blocks 
+        #       copied in and out to verify it matches the 
+        #       length variable above, since dd doesn't seem 
+        #       to return a proper return code
+        return True
+
+    #--------------------------------------------------------------------------------
+    # The main entry point
+    #--------------------------------------------------------------------------------
+ 
+    # TODO:
+    # add a timeout argument
+    def run(self,system=None,profile=None,platform=None,directory=None,skip_build=False):
+        if not system and not profile:
+            return False
+
+        if not directory:
+            directory = "/tmp/cobbler_deploy"
+        else:
+            if not os.path.exists(directory) and not os.path.isdir(directory):
+                self.logger.error("ERROR: the output directory (%s) specified is invalid")
+                return False
+
+        if platform:
+            platform = self.api.get_item("platform",platform)
+            self.source_envfile(platform.envfile)
+
+        system = self.api.get_item("system",system)
+        profile = system.get_parent()
+        distro = profile.get_parent()
+        while distro.TYPE_NAME != "distro":
+            distro = distro.get_parent()
+
+        self.logger.debug("deploy system  : %s" % system.name)
+        self.logger.debug("deploy profile : %s" % profile.name)
+        self.logger.debug("deploy distro  : %s" % distro.name)
+
+        if skip_build:
+            self.logger.info("skipping the build step...")
+        else :
+            if platform.type in ("eucalyptus","ec2"):
+                if not self.build_machine_image(system,profile,distro,platform,directory):
+                    self.logger.error("failed to build the machine image.")
+                    return False
+            else:
+                self.logger.error("Platform type '%s' is not supported yet" % platform.type)
+                return False
+
+        self.logger.info("bundling the image...")
+        cmd = "euca-bundle-image -i %s/%s-rootfs.img -r %s" % (directory,system.name,distro.arch)
+        (output,res) = utils.subprocess_sp(self.logger,cmd)
+        if res:
+            self.logger.error("The bundling command failed (rval=%d), bailing out. Result:\n%s" % (res,output))
+            return False
+        self.logger.info("bundling complete")
+        
+        self.logger.info("uploading the bundle to %s (%s)..." % (platform.name,platform.type))
+        cmd = "euca-upload-bundle -b cobbler-image -m %s/%s-rootfs.img.manifest.xml" % (directory,system.name)
+        (output,res) = utils.subprocess_sp(self.logger,cmd)
+        # TODO: parse output to validate upload worked
+        if res:
+            self.logger.error("The bundling command failed (rval=%d), bailing out. Result:\n%s" % (res,output))
+            return False
+        self.logger.info("upload complete, result: %s" % output.strip())
+
+        self.logger.info("registering the image on %s (%s)..." % (platform.name,platform.type) )
+        cmd = "euca-register -a %s cobbler-image/%s-rootfs.img.manifest.xml" % (distro.arch,system.name)
+        (output,res) = utils.subprocess_sp(self.logger,cmd)
+        if res:
+            self.logger.error("The bundling command failed (rval=%d), bailing out. Result:\n%s" % (res,output))
+            return False
+        self.logger.info("registration complete, result: %s" % output.strip())
 
         self.logger.info("Deployment complete")
         return True

@@ -242,6 +242,7 @@ class CobblerXMLRPCInterface:
             return self.remote.api.deploy(
                 self.options.get("system",None),
                 self.options.get("profile",None),
+                self.options.get("platform",None),
                 self.options.get("directory",None),
                 self.options.get("skip_build",False),
                 self.logger
