@@ -195,9 +195,14 @@ def get_fields(what, is_subobject, seed_item=None):
             else:
                 tokens = []
                 for (x,y) in elem["value"].items():
-                   if y is not None:
+                   if isinstance(y,str) and y.strip() != "~":
+                      y = y.replace(" ","\\ ")
                       tokens.append("%s=%s" % (x,y))
-                   else:
+                   elif isinstance(y,list):
+                      for l in y:
+                         l = l.replace(" ","\\ ")
+                         tokens.append("%s=%s" % (x,l))
+                   elif y != None:
                       tokens.append("%s" % x)
                 elem["value"] = " ".join(tokens)
 
@@ -564,7 +569,7 @@ def generic_domulti(request, what, multi_mode=None, multi_arg=None):
             return error_page(request,"You can only select one distro at a time to build an ISO for")
         options = { "standalone" : True, "distro": str(names[0]) }
         remote.background_buildiso(options, request.session['token'])
-    elif what == "profile" and multi_mode == "reposync":
+    elif what == "repo" and multi_mode == "reposync":
         options = { "repos" : names, "tries" : 3 }
         remote.background_reposync(options,request.session['token'])
     else:
@@ -1036,8 +1041,6 @@ def generic_edit(request, what=None, obj_name=None, editmode="new"):
 
    obj = None
 
-   settings = remote.get_settings()
-
    child = False
    if what == "subprofile":
       what = "profile"
@@ -1045,7 +1048,7 @@ def generic_edit(request, what=None, obj_name=None, editmode="new"):
 
    if not obj_name is None:
       editable = remote.check_access_no_fail(request.session['token'], "modify_%s" % what, obj_name)
-      obj = remote.get_item(what, obj_name, True)
+      obj = remote.get_item(what, obj_name, False)
    else:
        editable = remote.check_access_no_fail(request.session['token'], "new_%s" % what, None)
        obj = None
@@ -1247,6 +1250,22 @@ def test_user_authenticated(request):
 
     remote = xmlrpclib.Server(url_cobbler_api, allow_none=True)
 
+    token = remote.login("", utils.get_shared_secret())
+    if ( (remote.get_authn_module_name(token) == 'authn_passthru' and 
+          request.META.has_key('REMOTE_USER')) and
+         ( (request.session.has_key('username') and
+            request.META['REMOTE_USER'] != request.session['username']) or
+           (not request.session.has_key('username')))):
+              try:
+                  username = request.META['REMOTE_USER'] 
+                  password = utils.get_shared_secret()
+                  token = remote.login(username, password)
+              except:
+                  token = None
+              if token:
+                  request.session['username'] = username
+                  request.session['token'] = token 
+  
     # if we have a token, get the associated username from
     # the remote server via XMLRPC. We then compare that to 
     # the value stored in the session.  If everything matches up,

@@ -322,7 +322,7 @@ class BuildIso:
                       if idata["management"] == True and idata["interface_type"] in ["master","bond","bridge"]:
                          # bonded/bridged management interface
                          mgmt_ints_multi.append(iname)
-                      if idata["management"] == True and idata["interface_type"] not in ["master","bond","bridge","slave","bond_slave","bridge_slave"]:
+                      if idata["management"] == True and idata["interface_type"] not in ["master","bond","bridge","slave","bond_slave","bridge_slave","bonded_bridge_slave"]:
                          # single management interface
                          mgmt_ints.append(iname)
 
@@ -330,7 +330,7 @@ class BuildIso:
                    # bonded/bridged management interface, find a slave interface
                    # if eth0 is a slave use that (it's what people expect)
                    for (iname, idata) in data["interfaces"].iteritems():
-                      if idata["interface_type"] in ["slave","bond_slave","bridge_slave"] and idata["interface_master"] == mgmt_ints_multi[0]:
+                      if idata["interface_type"] in ["slave","bond_slave","bridge_slave","bonded_bridge_slave"] and idata["interface_master"] == mgmt_ints_multi[0]:
                          slave_ints.append(iname)
 
                    if "eth0" in slave_ints:
@@ -474,7 +474,7 @@ class BuildIso:
             if distro.breed == "redhat":
                append_line += " ks=cdrom:/isolinux/%s.cfg" % descendant.name
             if distro.breed == "suse":
-               append_line += " autoyast=file:///isolinux/%s.cfg install=file:///" % descendant.name
+               append_line += " autoyast=file:///isolinux/%s.cfg install=cdrom:///" % descendant.name
                if data["kernel_options"].has_key("install"):
                   del data["kernel_options"]["install"]
             if distro.breed in ["ubuntu","debian"]:
@@ -489,8 +489,9 @@ class BuildIso:
             elif descendant.COLLECTION_TYPE == 'system':
                 kickstart_data = self.api.kickgen.generate_kickstart_for_system(descendant.name)
 
-            cdregex = re.compile("url .*\n", re.IGNORECASE)
-            kickstart_data = cdregex.sub("cdrom\n", kickstart_data)
+            if distro.breed == "redhat":
+                cdregex = re.compile("url .*\n", re.IGNORECASE)
+                kickstart_data = cdregex.sub("cdrom\n", kickstart_data)
 
             ks_name = os.path.join(isolinuxdir, "%s.cfg" % descendant.name)
             ks_file = open(ks_name, "w+")

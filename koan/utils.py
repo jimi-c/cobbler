@@ -21,7 +21,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 02110-1301  USA
 """
 
-import random
 import os
 import traceback
 import tempfile
@@ -35,18 +34,12 @@ try:
     import urllib2
 except:
     ANCIENT_PYTHON = 1
-import time
 import shutil
 import errno
 import re
 import sys
 import xmlrpclib
 import string
-import re
-import glob
-import socket
-import shutil
-import tempfile
 import urlgrabber
 
 VIRT_STATE_NAME_MAP = {
@@ -58,6 +51,8 @@ VIRT_STATE_NAME_MAP = {
    5 : "shutdown",
    6 : "crashed"
 }
+
+VALID_DRIVER_TYPES = ['raw', 'qcow', 'qcow2', 'vmdk']
 
 class InfoException(exceptions.Exception):
     """
@@ -557,6 +552,14 @@ def __try_connect(url):
         traceback.print_exc()
         return None
 
-
-
+def create_qemu_image_file(path, size, driver_type):
+    if driver_type not in VALID_DRIVER_TYPES:
+        raise InfoException, "Invalid QEMU image type: %s" % driver_type
+   
+    cmd = ["qemu-img", "create", "-f", driver_type, path, "%sG" % size]
+    try:
+        subprocess_call(cmd)
+    except:
+        traceback.print_exc()
+        raise InfoException, "Image file create failed: %s" % string.join(cmd, " ")
 

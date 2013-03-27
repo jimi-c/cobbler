@@ -25,6 +25,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 import os
 import os.path
 import glob
+import pprint
 from cexceptions import *
 from template_api import Template
 from utils import *
@@ -55,9 +56,12 @@ class Templar:
         Constructor
         """
 
-        self.config      = config
-        self.api         = config.api
-        self.settings    = config.settings()
+        self.config   = None
+        self.settings = None
+        if config:
+            self.config   = config
+            self.settings = config.settings()
+
         self.last_errors = []
 
         if logger is None:
@@ -74,7 +78,7 @@ class Templar:
         for line in lines:
             if line.find("#import") != -1:
                rest=line.replace("#import","").replace(" ","").strip()
-               if rest not in self.settings.cheetah_import_whitelist:
+               if self.settings and rest not in self.settings.cheetah_import_whitelist:
                    raise CX("potentially insecure import in template: %s" % rest)
 
     def render(self, data_input, search_table, out_path, subject=None, template_type=None):
@@ -96,7 +100,7 @@ class Templar:
         if not template_type:
             # Assume we're using the default template type, if set in
             # the settinigs file or use cheetah as the last resort
-            if self.settings.default_template_type:
+            if self.settings and self.settings.default_template_type:
                 template_type = self.settings.default_template_type
             else:
                 template_type = "cheetah"
@@ -150,7 +154,6 @@ class Templar:
         Render data_input back into a file.
         data_input is either a string or a filename
         search_table is a hash of metadata keys and values
-        out_path if not-none writes the results to a file
         (though results are always returned)
         subject is a profile or system object, if available (for snippet eval)
         """
@@ -195,7 +198,7 @@ class Templar:
         })
 
         # now do full templating scan, where we will also templatify the snippet insertions
-        t = Template(source=raw_data, errorCatcher="Echo", searchList=[search_table], compilerSettings={'useStackFrame':False})
+        t = Template(source=raw_data, searchList=[search_table], compilerSettings={'useStackFrame':False})
 
         if fix_cheetah_class and functools is not None:
             t.SNIPPET = functools.partial(t.SNIPPET, t)
@@ -204,13 +207,12 @@ class Templar:
         try:
             data_out = t.respond()
             self.last_errors = t.errorCatcher().listErrors()
+            if self.last_errors:
+                self.logger.warning("errors were encountered rendering the template")
+                self.logger.warning("\n" + pprint.pformat(self.last_errors))
         except Exception, e:
-            if out_path is None:
-               return utils.cheetah_exc(e)
-            else:
-               # FIXME: log this
-               self.logger.error(utils.cheetah_exc(e))
-               raise CX("Error templating file: %s" % out_path)
+            self.logger.error(utils.cheetah_exc(e))
+            raise CX("Error templating file, check cobbler.log for more details")
 
         return data_out
 

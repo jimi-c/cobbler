@@ -21,16 +21,12 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 02110-1301  USA
 """
 
-import os
-import os.path
-import shutil
 import time
 import sys
 import glob
 import traceback
 import errno
 import re
-from shlex import shlex
 
 
 import utils
@@ -61,15 +57,17 @@ class BindManager:
         """
         Constructor
         """
-        self.logger      = logger
-        self.config      = config
-        self.api         = config.api
-        self.distros     = config.distros()
-        self.profiles    = config.profiles()
-        self.systems     = config.systems()
-        self.settings    = config.settings()
-        self.repos       = config.repos()
-        self.templar     = templar.Templar(config)
+        self.logger        = logger
+        self.config        = config
+        self.api           = config.api
+        self.distros       = config.distros()
+        self.profiles      = config.profiles()
+        self.systems       = config.systems()
+        self.settings      = config.settings()
+        self.repos         = config.repos()
+        self.templar       = templar.Templar(config)
+        self.settings_file = utils.namedconf_location(self.api)
+        self.zonefile_base = utils.zonefile_base(self.api)
 
     def regen_hosts(self):
         pass # not used
@@ -180,7 +178,7 @@ class BindManager:
         """
         Write out the named.conf main config file from the template.
         """
-        settings_file = self.settings.bind_chroot_path + '/etc/named.conf'
+        settings_file = self.settings.bind_chroot_path + self.settings_file
         template_file = "/etc/cobbler/named.template"
         forward_zones = self.settings.manage_forward_zones
         reverse_zones = self.settings.manage_reverse_zones
@@ -291,9 +289,18 @@ zone "%(arpa)s." {
         """
         Format host records by order and with consistent indentation
         """
+        
+        # Warns on hosts without dns_name, need to iterate over system to name the
+        # particular system
+                 
+        for system in self.systems:
+            for (name, interface) in system.interfaces.iteritems():
+                if interface["dns_name"] == "":
+                    self.logger.info(("Warning: dns_name unspecified in the system: %s, while writing host records") % system.name)                       
+                
         names = [k for k,v in hosts.iteritems()]
         if not names: return '' # zones with no hosts
-
+        
         if rectype == 'PTR':
            names = self.__ip_sort(names)
         else:
@@ -308,6 +315,33 @@ zone "%(arpa)s." {
            my_host = hosts[name]
            s += "%s  %s  %s  %s;\n" % (my_name, rclass, rectype, my_host)
         return s
+    
+    def __pretty_print_cname_records(self, hosts, rectype='CNAME'):
+        """
+        Format CNAMEs and with consistent indentation
+        """
+        s = ""
+        
+        # This loop warns and skips the host without dns_name instead of outright exiting
+        # Which results in empty records without any warning to the users
+        
+        for system in self.systems:
+            for (name, interface) in system.interfaces.iteritems():
+                cnames = interface["cnames"]
+        
+                try:
+                    if interface["dns_name"] != "":
+                        dnsname = interface["dns_name"].split('.')[0] 
+                        for cname in cnames:
+                            s += "%s  %s  %s;\n" % (cname.split('.')[0], rectype, dnsname)                    
+                    else:
+                        self.logger.info(("Warning: dns_name unspecified in the system: %s, Skipped!, while writing cname records") % system.name)
+                        continue
+                except:
+                    pass
+                                                                                                         
+        return s
+    
 
     def __write_zone_files(self):
         """
@@ -315,7 +349,27 @@ zone "%(arpa)s." {
         """
         default_template_file = "/etc/cobbler/zone.template"
         cobbler_server = self.settings.server
-        serial = int(time.time())
+        #this could be a config option too
+        serial_filename="/var/lib/cobbler/bind_serial"
+        #need a counter for new bind format
+        serial = time.strftime("%Y%m%d00")
+        try:
+           serialfd = open(serial_filename,"r")
+           old_serial = serialfd.readline()
+           #same date
+           if serial[0:8] == old_serial[0:8]:
+              if int(old_serial[8:10]) < 99 :
+                 serial= "%s%.2i" % (serial[0:8],int(old_serial[8:10]) +1)
+           else:
+              pass
+           serialfd.close()
+        except:
+           pass
+
+        serialfd = open(serial_filename,"w")
+        serialfd.write(serial)
+        serialfd.close()
+
         forward = self.__forward_zones()
         reverse = self.__reverse_zones()
 
@@ -327,13 +381,16 @@ zone "%(arpa)s." {
         default_template_data = f2.read()
         f2.close()
 
-        zonefileprefix = self.settings.bind_chroot_path + '/var/named/'
+        zonefileprefix = self.settings.bind_chroot_path + self.zonefile_base
 
         for (zone, hosts) in forward.iteritems():
             metadata = {
                 'cobbler_server': cobbler_server,
                 'serial': serial,
+                'zonetype': 'forward',
+                'cname_record': '',
                 'host_record': ''
+                
             }
 
             # grab zone-specific template if it exists
@@ -344,8 +401,10 @@ zone "%(arpa)s." {
             except:
                template_data = default_template_data
 
+            metadata['cname_record'] = self.__pretty_print_cname_records(hosts)
             metadata['host_record'] = self.__pretty_print_host_records(hosts)
-
+            
+            
             zonefilename=zonefileprefix + zone
             if self.logger is not None:
                self.logger.info("generating (forward) %s" % zonefilename)
@@ -355,6 +414,8 @@ zone "%(arpa)s." {
             metadata = {
                 'cobbler_server': cobbler_server,
                 'serial': serial,
+                'zonetype': 'reverse',
+                'cname_record': '',
                 'host_record': ''
             }
 
@@ -366,8 +427,10 @@ zone "%(arpa)s." {
             except:
                template_data = default_template_data
 
+            metadata['cname_record'] = self.__pretty_print_cname_records(hosts)
             metadata['host_record'] = self.__pretty_print_host_records(hosts, rectype='PTR')
-
+            
+            
             zonefilename=zonefileprefix + zone
             if self.logger is not None:
                self.logger.info("generating (reverse) %s" % zonefilename)

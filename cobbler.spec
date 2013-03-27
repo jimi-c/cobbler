@@ -25,6 +25,7 @@ Requires: httpd
 Requires: tftp-server
 Requires: mod_wsgi
 Requires: createrepo
+Requires: python-augeas
 Requires: python-cheetah
 Requires: python-netaddr
 Requires: python-simplejson
@@ -79,8 +80,8 @@ other applications.
 test "x$RPM_BUILD_ROOT" != "x" && rm -rf $RPM_BUILD_ROOT
 %{__python} setup.py install --optimize=1 --root=$RPM_BUILD_ROOT $PREFIX
 mkdir -p $RPM_BUILD_ROOT/etc/httpd/conf.d
-install -p -m 644 config/cobbler.conf $RPM_BUILD_ROOT/etc/httpd/conf.d/
-install -p -m 644 config/cobbler_web.conf $RPM_BUILD_ROOT/etc/httpd/conf.d/
+mv config/cobbler.conf $RPM_BUILD_ROOT/etc/httpd/conf.d/
+mv config/cobbler_web.conf $RPM_BUILD_ROOT/etc/httpd/conf.d/
 
 mkdir -p $RPM_BUILD_ROOT/var/spool/koan
 
@@ -239,6 +240,7 @@ test "x$RPM_BUILD_ROOT" != "x" && rm -rf $RPM_BUILD_ROOT
 %{python_sitelib}/cobbler
 
 %config(noreplace) /var/lib/cobbler
+%exclude /var/lib/cobbler/webui_sessions
 
 /var/log/cobbler
 /var/www/cobbler
@@ -269,6 +271,7 @@ Requires: python >= 2.0
 %if 0%{?fedora} >= 11 || 0%{?rhel} >= 6
 Requires: python(abi) >= %{pyver}
 Requires: python-simplejson
+Requires: python-virtinst
 %endif
 
 
@@ -283,6 +286,7 @@ of an existing system.  For use with a boot-server configured with Cobbler
 %dir /var/spool/koan
 %dir /var/lib/koan/config
 %{_bindir}/koan
+%{_bindir}/ovz-install
 %{_bindir}/cobbler-register
 %{python_sitelib}/koan
 

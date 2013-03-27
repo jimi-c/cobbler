@@ -1,6 +1,35 @@
 import unittest
+import koan
 
 from koan.virtinstall import build_commandline
+from koan.virtinstall import create_image_file
+from mock import patch
+
+def setup():
+    try:
+        from virtinst import version as vi_version
+        koan.virtinstall.virtinst_version = vi_version.__version__.split('.')
+    except:
+        koan.virtinstall.virtinst_version = 6
+
+class OsPathMock:
+    _dir_path = [
+            '/path/to/imagedir',
+            ]
+    _exist_files = [
+            '/path/to/imagedir/existfile',
+            ]
+
+    def isdir(self, path):
+        if path in self._dir_path:
+            return True
+        return False
+
+    def exists(self, path):
+        if path in self._exist_files:
+            return True
+        return False
+
 
 class KoanVirtInstallTest(unittest.TestCase):
     def testXenPVBasic(self):
@@ -11,6 +40,7 @@ class KoanVirtInstallTest(unittest.TestCase):
             vcpus=1,
             bridge="br0",
             disks=[("/tmp/foo1.img", 8), ("/dev/foo1", 0)],
+            virt_type="xenpv",
             qemu_driver_type="virtio",
             qemu_net_type="virtio",
             profile_data={
@@ -37,6 +67,7 @@ class KoanVirtInstallTest(unittest.TestCase):
             fullvirt=True,
             arch="x86_64",
             bridge="br0,br1",
+            virt_type="xenfv",
             profile_data = {
                 "breed" : "redhat",
                 "os_version" : "fedora14",
@@ -67,6 +98,7 @@ class KoanVirtInstallTest(unittest.TestCase):
             vcpus=1,
             disks=[("/tmp/foo1.img", 8), ("/dev/foo1", 0)],
             fullvirt=True,
+            virt_type="qemu",
             bridge="br0",
             profile_data = {
                 "breed" : "windows",
@@ -76,7 +108,7 @@ class KoanVirtInstallTest(unittest.TestCase):
         cmd = " ".join(cmd)
         self.assertEquals(cmd,
             ("virt-install --connect qemu:///system --name foo --ram 256 "
-             "--vcpus 1 --vnc --hvm --cdrom /some/cdrom/path.iso "
+             "--vcpus 1 --vnc --virt-type qemu --machine pc --hvm --cdrom /some/cdrom/path.iso "
              "--os-type windows --disk path=/tmp/foo1.img,size=8 "
              "--disk path=/dev/foo1 --network bridge=br0 "
              "--wait 0 --noautoconsole")
@@ -91,18 +123,21 @@ class KoanVirtInstallTest(unittest.TestCase):
             fullvirt=True,
             arch="i686",
             bridge="br0",
+            virt_type="qemu",
             qemu_driver_type="virtio",
             qemu_net_type="virtio",
             profile_data = {
                 "breed" : "ubuntu",
                 "os_version" : "natty",
                 "install_tree" : "http://example.com/some/install/tree",
-            })
+            },
+            extra="ks=http://example.com/ks.ks text kssendmac")
 
         cmd = " ".join(cmd)
         self.assertEquals(cmd,
             ("virt-install --connect qemu:///system --name foo --ram 256 "
-             "--vcpus 1 --vnc --hvm "
+             "--vcpus 1 --vnc --virt-type qemu --machine pc --hvm "
+             "--extra-args=ks=http://example.com/ks.ks text kssendmac "
              "--location http://example.com/some/install/tree/ --arch i686 "
              "--os-variant ubuntunatty "
              "--disk path=/tmp/foo1.img,size=8,bus=virtio "
@@ -119,18 +154,22 @@ class KoanVirtInstallTest(unittest.TestCase):
             fullvirt=None,
             arch="i686",
             bridge="br0",
+            virt_type="kvm",
             qemu_driver_type="virtio",
             qemu_net_type="virtio",
+            qemu_machine_type="pc-1.0",
             profile_data = {
                 "breed" : "ubuntu",
                 "os_version" : "natty",
                 "install_tree" : "http://example.com/some/install/tree",
-            })
+            },
+            extra="ks=http://example.com/ks.ks text kssendmac")
 
         cmd = " ".join(cmd)
         self.assertEquals(cmd,
             ("virt-install --connect qemu:///system --name foo --ram 256 "
-             "--vcpus 1 --vnc --kvm "
+             "--vcpus 1 --vnc --virt-type kvm --machine pc-1.0 "
+             "--extra-args=ks=http://example.com/ks.ks text kssendmac "
              "--location http://example.com/some/install/tree/ --arch i686 "
              "--os-variant ubuntunatty "
              "--disk path=/tmp/foo1.img,size=8,bus=virtio "
@@ -159,3 +198,32 @@ class KoanVirtInstallTest(unittest.TestCase):
              "--disk path=/some/install/image.img --network bridge=br0 "
              "--network bridge=br2 --wait 0 --noautoconsole")
         )
+
+    @patch('koan.virtinstall.utils.subprocess_call')
+    @patch('koan.virtinstall.utils.os.path', new_callable=OsPathMock)
+    def test_create_qcow_file(self, mock_path, mock_subprocess):
+        disks = [
+                    ( '/path/to/imagedir/new_qcow_file', '30', 'qcow' ),
+                    ( '/path/to/imagedir/new_qcow2_file', '30', 'qcow2' ),
+                    ( '/path/to/imagedir/new_raw_file', '30', 'raw' ),
+                    ( '/path/to/imagedir/new_vmdk_file', '30', 'vmdk' ),
+                    ( '/path/to/imagedir/new_qcow_file', '30'),
+                    ( '/path/to/imagedir/new_qcow2_file', '0', 'qcow2' ),
+                    ( '/path/to/imagedir/existfile', '30', 'qcow2' ),
+                    ( '/path/to/imagedir', '30', 'qcow2' ),
+                ]
+
+        create_image_file(disks)
+        res = []
+        for args, kargs in mock_subprocess.call_args_list:
+            res.append(" ".join(args[0]))
+
+        self.assertEquals(res,
+            [
+                'qemu-img create -f qcow /path/to/imagedir/new_qcow_file 30G',
+                'qemu-img create -f qcow2 /path/to/imagedir/new_qcow2_file 30G',
+                'qemu-img create -f raw /path/to/imagedir/new_raw_file 30G',
+                'qemu-img create -f vmdk /path/to/imagedir/new_vmdk_file 30G',
+            ]
+        )
+

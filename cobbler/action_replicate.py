@@ -50,7 +50,7 @@ class Replicate:
 
     def rsync_it(self,from_path,to_path):
         from_path = "%s::%s" % (self.host, from_path)
-        cmd = "rsync -avzH %s %s" % (from_path, to_path)
+        cmd = "rsync %s %s %s" % (self.settings.replicate_rsync_options, from_path, to_path)
         rc = utils.subprocess_call(self.logger, cmd, shell=True)
         if rc !=0:
             self.logger.info("rsync failed")
@@ -173,7 +173,7 @@ class Replicate:
                             if not os.path.isdir(parentdir):
                                 os.makedirs(parentdir)
                             self.rsync_it("distro-%s"%distro["name"], dest)
-                    elif distro["breed"] == 'vmware' and distro["os_version"] == 'esxi4':
+                    elif distro["breed"] == 'vmware' and distro["os_version"] in ('esxi4', 'esxi5'):
                         dest = distro["kernel"]
                         parentdir = os.path.split(dest)[0]
                         if not os.path.isdir(parentdir):

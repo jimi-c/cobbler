@@ -17,10 +17,10 @@ function intf_update_visibility()
     is_slave  = false
     is_master = false
     value = document.getElementById("interface_type").value
-    if (value == "slave" || value == "bond_slave" || value == "bridge_slave") {
+    if (value == "slave" || value == "bond_slave" || value == "bridge_slave" || value == "bonded_bridge_slave") {
         is_slave = true;
     }    
-    else if (value == "master" || value == "bond" || value == "bridge") {
+    if (value == "master" || value == "bond" || value == "bridge" || value == "bonded_bridge_slave") {
         is_master = true;
     }
 
@@ -73,6 +73,7 @@ function populate_widgets()
     buf = buf + "<select name='interfaces' id='interfaces' onchange='javascript:on_interface_change()'>";
     buf = buf + "</select>";
     buf = buf + "<input class='button' type='button' name='deleteinterface' value='Delete' onclick='javascript:on_interface_delete()' />";
+    buf = buf + "<input class='button' type='button' name='renameinterface' value='Rename' onclick='javascript:on_interface_rename()' />";
     document.getElementById("widget_network_widget_b").innerHTML = buf;
 
     buf = "";
@@ -152,6 +153,26 @@ function on_interface_delete()
     load_intf()
 } 
 
+function on_interface_rename()
+{
+    selected = get_selected_interface();
+    var newname = window.prompt("Rename Interface",selected);
+    if (newname == null || newname == selected) {
+        return;
+    }
+
+    interface_table[newname] = jQuery.extend(true, {}, interface_table[selected]);
+    interface_table[selected]["present"] = 0
+
+    interfaces = document.getElementById("interfaces");
+    for (i = interfaces.options.length - 1; i>=0; i--) {
+        if (interfaces.options[i].value == selected) {
+            interfaces.options[i].text = newname;
+            interfaces.options[i].value = newname;
+        }
+    }
+}
+
 function get_enabled_field(field,enabled)
 {
     if (enabled) {
@@ -176,10 +197,10 @@ function save_intf(which)
     var type = document.getElementById("interface_type").value
     var is_slave  = false;
     var is_master = false;
-    if (type == "master" || type == "bond" || type == "bridge") {
+    if (type == "master" || type == "bond" || type == "bridge" || type == "bonded_bridge_slave") {
         is_master  = true;
     }
-    if (type == "slave" || type == "bond_slave" || type == "bridge_slave") {
+    if (type == "slave" || type == "bond_slave" || type == "bridge_slave" || type == "bonded_bridge_slave") {
         is_slave   = true;
     }
     is_static=document.getElementById("static").checked

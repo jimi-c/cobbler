@@ -174,7 +174,7 @@ class Item:
         Kernel options are a space delimited list,
         like 'a=b c=d e=f g h i=j' or a hash.
         """
-        (success, value) = utils.input_string_or_hash(options)
+        (success, value) = utils.input_string_or_hash(options,allow_multiples=True)
         if not success:
             raise CX(_("invalid kernel options"))
         else:
@@ -193,7 +193,7 @@ class Item:
         Post kernel options are a space delimited list,
         like 'a=b c=d e=f g h i=j' or a hash.
         """
-        (success, value) = utils.input_string_or_hash(options)
+        (success, value) = utils.input_string_or_hash(options,allow_multiples=True)
         if not success:
             raise CX(_("invalid post kernel options"))
         else:
@@ -213,7 +213,7 @@ class Item:
         The meta tags are used as input to the templating system
         to preprocess kickstart files
         """
-        (success, value) = utils.input_string_or_hash(options,allow_multiples=False)
+        (success, value) = utils.input_string_or_hash(options,allow_multiples=True)
         if not success:
             return False
         else:
