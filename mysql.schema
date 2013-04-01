@@ -1,5 +1,6 @@
 CREATE DATABASE cobbler;
-GRANT ALL PRIVILEGES ON cobbler.* TO 'cobbler'@'%' IDENTIFIED BY 'testing123';
+GRANT ALL PRIVILEGES ON cobbler.* TO 'cobbler'@'localhost' IDENTIFIED BY 'testing123';
+USE cobbler;
 CREATE TABLE distro (name VARCHAR(100) NOT NULL PRIMARY KEY, data TEXT) ENGINE=innodb;
 CREATE TABLE profile (name VARCHAR(100) NOT NULL PRIMARY KEY, data TEXT) ENGINE=innodb;
 CREATE TABLE system (name VARCHAR(100) NOT NULL PRIMARY KEY, data TEXT) ENGINE=innodb;
