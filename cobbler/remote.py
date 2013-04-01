@@ -255,12 +255,20 @@ class CobblerXMLRPCInterface:
     def background_power_system(self, options, token):
         def runner(self):
             for x in self.options.get("systems",[]):
-                object_id = self.remote.get_system_handle(x,token)
-                self.remote.power_system(object_id,self.options.get("power",""),token,logger=self.logger)
+                try:
+                    object_id = self.remote.get_system_handle(x,token)
+                    self.remote.power_system(object_id,self.options.get("power",""),token,logger=self.logger)
+                except:
+                    self.logger.warning("failed to execute power task on %s" % str(x))
             return True
         self.check_access(token, "power")
         return self.__start_task(runner, token, "power", "Power management (%s)" % options.get("power",""), options)
-    
+
+    def background_signature_update(self, options, token):
+        def runner(self):
+            return self.remote.api.signature_update(self.logger)
+        self.check_access(token, "sigupdate")
+        return self.__start_task(runner, token, "sigupdate", "Updating Signatures", options)
 
     def get_events(self, for_user=""):
         """
@@ -847,6 +855,9 @@ class CobblerXMLRPCInterface:
             return 1
    
     def __is_interface_field(self,f):
+        if f in ("delete_interface","rename_interface"):
+           return True
+
         k = "*%s" % f
         for x in item_system.FIELDS:
            if k == x[0]:
@@ -864,6 +875,9 @@ class CobblerXMLRPCInterface:
 
         Ex: xapi_object_edit("distro","el5","add",{"kernel":"/tmp/foo","initrd":"/tmp/foo"},token)
         """
+        if object_name.strip() == "":
+            raise CX("xapi_object_edit() called without an object name")
+
         self.check_access(token,"xedit_%s" % object_type, token)
 
         if edit_type == "add" and not attributes.has_key("clobber"):
@@ -871,15 +885,15 @@ class CobblerXMLRPCInterface:
             try:
                 handle = self.get_item_handle(object_type, object_name)
             except:
-                utils.log_exc(self.logger)
                 pass
             if handle != 0:
                 raise CX("it seems unwise to overwrite this object, try 'edit'")
 
         if edit_type == "add":
             is_subobject = object_type == "profile" and "parent" in attributes
-            if object_type == "system" and "profile" not in attributes:
-                raise CX("--profile is required for new systems")
+            if object_type == "system":
+                if "profile" not in attributes and "image" not in attributes:
+                    raise CX("You must specify a --profile or --image for new systems")
             handle = self.new_item(object_type, token, is_subobject=is_subobject)
         else:
             handle = self.get_item_handle(object_type, object_name)
@@ -901,29 +915,34 @@ class CobblerXMLRPCInterface:
             imods = {}
             # FIXME: needs to know about how to delete interfaces too!
             for (k,v) in attributes.iteritems():
-                if not object_type == "system" or not self.__is_interface_field(k):
-
+                if object_type != "system" or not self.__is_interface_field(k):
                     # in place modifications allow for adding a key/value pair while keeping other k/v
                     # pairs intact.
-                    if k in [ "ks_meta", "kernel_options", "kernel_options_post", "template_files", "boot_files", "fetchable_files"] and attributes.has_key("in_place") and attributes["in_place"]:
+                    if k in ["ks_meta","kernel_options","kernel_options_post","template_files","boot_files","fetchable_files"] and attributes.has_key("in_place") and attributes["in_place"]:
                         details = self.get_item(object_type,object_name)
                         v2 = details[k]
                         (ok, input) = utils.input_string_or_hash(v)
                         for (a,b) in input.iteritems():
-                           v2[a] = b
+                            if a.startswith("~") and len(a) > 1:
+                                del v2[a[1:]]
+                            else:
+                                v2[a] = b
                         v = v2
 
                     self.modify_item(object_type,handle,k,v,token)
 
                 else:
-                    modkey = "%s-%s" % (k, attributes.get("interface","eth0"))
+                    modkey = "%s-%s" % (k, attributes.get("interface",""))
                     imods[modkey] = v
-            if object_type == "system" and not attributes.has_key("delete_interface"):
-                self.modify_system(handle, 'modify_interface', imods, token)
-            elif object_type == "system":
-                self.modify_system(handle, 'delete_interface', attributes.get("interface", "eth0"), token)
 
-
+            if object_type == "system":
+                if not attributes.has_key("delete_interface") and not attributes.has_key("rename_interface"):
+                    self.modify_system(handle, 'modify_interface', imods, token)
+                elif attributes.has_key("delete_interface"):
+                    self.modify_system(handle, 'delete_interface', attributes.get("interface", ""), token)
+                elif attributes.has_key("rename_interface"):
+                    ifargs = [attributes.get("interface",""),attributes.get("rename_interface","")]
+                    self.modify_system(handle, 'rename_interface', ifargs, token)
         else:
            self.remove_item(object_type, object_name, token, recursive=True)
            return True
@@ -1033,6 +1052,14 @@ class CobblerXMLRPCInterface:
         self._log("get_settings",token=token)
         results = self.api.settings().to_datastruct()
         self._log("my settings are: %s" % results, debug=True)
+        return self.xmlrpc_hacks(results)
+
+    def get_signatures(self,token=None,**rest):
+        """
+        Return the contents of the API signatures
+        """
+        self._log("get_signatures",token=token)
+        results = self.api.get_signatures()
         return self.xmlrpc_hacks(results)
 
     def get_repo_config_for_profile(self,profile_name,**rest):
@@ -1201,8 +1228,7 @@ class CobblerXMLRPCInterface:
         obj = systems.find(name=sys_name)
         if obj == None:
             # system not found!
-            self._log("upload_log_data - system '%s' not found" % sys_name, token=token, name=sys_name)
-            return False
+            self._log("upload_log_data - WARNING - system '%s' not found in cobbler" % sys_name, token=token, name=sys_name)
 
         return self.__upload_file(sys_name, file, size, offset, data)
 
@@ -1745,6 +1771,13 @@ class CobblerXMLRPCInterface:
         if not rc:
             raise CX("authorization failure for user %s" % user) 
         return rc
+
+    def get_authn_module_name(self, token):
+        validated = self.__validate_token(token)
+        user = self.get_user_from_token(token)
+        if user != "<DIRECT>":
+          raise CX("authorization failure for user %s attempting to access authn module name" %user)
+        return self.api.get_module_name_from_file("authentication", "module")
 
     def login(self,login_user,login_password):
         """
