@@ -34,8 +34,8 @@ import app as koan
 import utils
 
 try:
-    from virtinst import version as vi_version
-    virtinst_version = vi_version.__version__.split('.')
+    import virtinst
+    virtinst_version = virtinst.__version__.split('.')
 except:
     virtinst_version = None
 
@@ -102,6 +102,16 @@ def _sanitize_nics(nics, bridge, profile_bridge, network_count):
 
     return ret
 
+def create_image_file(disks=None, **kwargs):
+    disks = _sanitize_disks(disks)
+    for path, size, driver_type in disks:
+        if driver_type is None:
+            continue
+        if os.path.isdir(path) or os.path.exists(path):
+            continue
+        if str(size) == "0":
+            continue
+        utils.create_qemu_image_file(path, size, driver_type)
 
 def build_commandline(uri,
                       name=None,
@@ -117,9 +127,13 @@ def build_commandline(uri,
                       bridge=None,
                       virt_type=None,
                       virt_auto_boot=False,
+                      virt_pxe_boot=False,
                       qemu_driver_type=None,
                       qemu_net_type=None,
-                      qemu_machine_type=None):
+                      qemu_machine_type=None,
+                      wait=0,
+                      noreboot=False,
+                      osimport=False):
 
     # Set flags for CLI arguments based on the virtinst_version
     # tuple above. Older versions of python-virtinst don't have
@@ -128,17 +142,28 @@ def build_commandline(uri,
 
     disable_autostart = False
     disable_virt_type = False
+    disable_boot_opt = False
     disable_driver_type = False
     disable_net_model = False
+    disable_machine_type = False
     oldstyle_macs = False
+    oldstyle_accelerate = False
 
     if not virtinst_version:
         print ("- warning: old python-virtinst detected, a lot of features will be disabled")
         disable_autostart = True
+        disable_boot_opt = True
         disable_virt_type = True
         disable_driver_type = True
         disable_net_model = True
+        disable_machine_type = True
         oldstyle_macs = True
+        oldstyle_accelerate = True
+
+    import_exists = False # avoid duplicating --import parameter
+    disable_extra = False # disable --extra-args on --import
+    if osimport:
+        disable_extra = True
 
     is_import = uri.startswith("import")
     if is_import:
@@ -259,32 +284,40 @@ def build_commandline(uri,
         if not disable_virt_type:
             cmd += "--virt-type %s " % virt_type
 
-    if is_qemu and machine_type:
+    if is_qemu and machine_type and not disable_machine_type:
         cmd += "--machine %s " % machine_type
 
     if fullvirt or is_qemu or is_import:
         if fullvirt is not None:
             cmd += "--hvm "
+        elif oldstyle_accelerate:
+            cmd += "--accelerate "
 
-        if is_qemu and extra:
+        if is_qemu and extra and not(virt_pxe_boot) and not(disable_extra):
             cmd += ("--extra-args=\"%s\" " % (extra))
 
-        if is_xen:
+        if virt_pxe_boot or is_xen:
             cmd += "--pxe "
-
         elif cdrom:
             cmd += "--cdrom %s " % cdrom
         elif location:
             cmd += "--location %s " % location
         elif importpath:
             cmd += "--import "
+            import_exists = True
 
         if arch:
             cmd += "--arch %s " % arch
     else:
         cmd += "--paravirt "
-        cmd += ("--boot kernel=%s,initrd=%s,kernel_args=\"%s\" " %
-                (kernel, initrd, extra))
+        if not disable_boot_opt:
+            cmd += ("--boot kernel=%s,initrd=%s,kernel_args=\"%s\" " %
+                    (kernel, initrd, extra))
+        else:
+            if location:
+                cmd += "--location %s " % location
+            if extra:
+                cmd += "--extra-args=\"%s\" " % extra
 
     if breed and breed != "other":
         if os_version and os_version != "other":
@@ -311,7 +344,7 @@ def build_commandline(uri,
         if disk_bus:
             cmd += ",bus=%s" % disk_bus
         if driver_type and not disable_driver_type:
-            cmd += ",driver_type=%s" % driver_type
+            cmd += ",format=%s" % driver_type
         cmd += " "
 
     if floppy:
@@ -328,7 +361,11 @@ def build_commandline(uri,
                 cmd += ",mac=%s" % mac
         cmd += " "
 
-    cmd += "--wait 0 "
+    cmd += "--wait %d " % int(wait)
+    if noreboot:
+        cmd += "--noreboot "
+    if osimport and not(import_exists):
+        cmd += "--import "
     cmd += "--noautoconsole "
 
     return shlex.split(cmd.strip())

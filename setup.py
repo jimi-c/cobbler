@@ -173,7 +173,7 @@ if __name__ == "__main__":
         webroot     = "/srv/www/"
     elif os.path.exists("/etc/debian_version"):
         webconfig  = "/etc/apache2/conf.d"
-        webroot     = "/usr/share/cobbler/webroot/"
+        webroot     = "/srv/www/"
     else:
         webconfig  = "/etc/httpd/conf.d"
         webroot     = "/var/www/"
@@ -222,6 +222,7 @@ if __name__ == "__main__":
             ("installer_templates",         ["installer_templates/*"]),
             ("%skickstarts" % libpath,      ["kickstarts/*"]),
             ("%ssnippets" % libpath,        ["snippets/*"]),
+            ("%s" % libpath,                ["config/distro_signatures.json"]),
             ("web",                         ["web/*.*"]),
             ("%s" % webcontent,             ["web/content/*.*"]),
             ("web/cobbler_web",             ["web/cobbler_web/*.*"]),

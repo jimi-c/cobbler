@@ -84,6 +84,7 @@ DISPLAY_PARAMS = [
    "virt_type",
    "virt_path",
    "virt_auto_boot",
+   "virt_pxe_boot",
 ]
 
 
@@ -183,6 +184,10 @@ def main():
                  action="store_true", 
                  dest="virt_auto_boot",
                  help="set VM for autoboot")
+    p.add_option("", "--virt-pxe-boot",
+                 action="store_true",
+                 dest="virt_pxe_boot",
+                 help="PXE boot for installation override")
     p.add_option("", "--add-reinstall-entry",
                  dest="add_reinstall_entry",
                  action="store_true",
@@ -212,6 +217,17 @@ def main():
     p.add_option("", "--qemu-machine-type",
                  dest="qemu_machine_type",
                  help="when used with --virt_type=qemu, select type of machine type to emulate: pc, pc-1.0, pc-0.15")
+    p.add_option("", "--wait",
+                 dest="wait", type='int', default=0,	# default to 0 for koan backwards compatibility
+                 help="pass the --wait=<INT> argument to virt-install")
+    p.add_option("", "--noreboot",
+                 dest="noreboot", default=False,	# default to False for koan backwards compatibility
+                 action="store_true",
+                 help="pass the --noreboot argument to virt-install")
+    p.add_option("", "--import",
+                 dest="osimport", default=False,	# default to False for koan backwards compatibility
+                 action="store_true",
+                 help="pass the --import argument to virt-install")
 
     (options, args) = p.parse_args()
 
@@ -243,9 +259,13 @@ def main():
         k.should_poll         = options.should_poll
         k.embed_kickstart     = options.embed_kickstart
         k.virt_auto_boot      = options.virt_auto_boot
+        k.virt_pxe_boot       = options.virt_pxe_boot
         k.qemu_disk_type      = options.qemu_disk_type
         k.qemu_net_type       = options.qemu_net_type
         k.qemu_machine_type   = options.qemu_machine_type
+        k.virtinstall_wait    = options.wait
+        k.virtinstall_noreboot= options.noreboot
+        k.virtinstall_osimport= options.osimport
 
         if options.virt_name is not None:
             k.virt_name          = options.virt_name
@@ -306,6 +326,10 @@ class Koan:
         self.qemu_net_type     = None
         self.qemu_machine_type = None
         self.virt_auto_boot    = None
+        self.virt_pxe_boot     = None
+        self.virtinstall_wait  = None
+        self.virtinstall_noreboot = None
+        self.virtinstall_osimport = None
 
         # This option adds the --copy-default argument to /sbin/grubby
         # which uses the default boot entry in the grub.conf
@@ -726,6 +750,7 @@ class Koan:
             tree_re = re.compile ('(http|ftp|nfs):')
             # Next check for installation tree on remote server
             if tree_re.match(tree):
+                tree = tree.replace("@@http_server@@", profile_data["http_server"])
                 profile_data["install_tree"] = tree
             else:
             # Now take the first parameter as the local path
@@ -912,7 +937,7 @@ class Koan:
 
             (make, version) = utils.os_release()
 
-            if (make == "centos" and version < 6) or (make == "redhat" and version < 6) or (make == "fedora" and version < 10):
+            if (make == "centos" and version < 7) or (make == "redhat" and version < 7) or (make == "fedora" and version < 10):
 
                 # embed the initrd in the kickstart file because of libdhcp and/or pump
                 # needing the help due to some DHCP timeout potential in some certain
@@ -1002,7 +1027,7 @@ class Koan:
 
             kickstart = self.safe_load(profile_data,'kickstart')
 
-            if (make == "centos" and version < 6) or (make == "redhat" and version < 6) or (make == "fedora" and version < 10):
+            if (make == "centos" and version < 7) or (make == "redhat" and version < 7) or (make == "fedora" and version < 10):
 
                 # embed the initrd in the kickstart file because of libdhcp and/or pump
                 # needing the help due to some DHCP timeout potential in some certain
@@ -1151,7 +1176,7 @@ class Koan:
         return r"""
         cd /var/spool/koan
         mkdir initrd
-        gzip -dc %s > initrd.tmp
+        gzip -dc %s > initrd.tmp || xz -dc %s > initrd.tmp
         if mount -o loop -t ext2 initrd.tmp initrd >&/dev/null ; then
             cp ks.cfg initrd/
             ln initrd/ks.cfg initrd/tmp/ks.cfg
@@ -1376,6 +1401,7 @@ class Koan:
         else:
             disks           = self.merge_disk_data(path_list,size_list,driver_list)
         virt_auto_boot      = self.calc_virt_autoboot(pd, self.virt_auto_boot)
+        virt_pxe_boot       = self.calc_virt_pxeboot(pd, self.virt_pxe_boot)
 
         results = create_func(
                 name              =  virtname,
@@ -1391,9 +1417,13 @@ class Koan:
                 bridge            =  self.virt_bridge,
                 virt_type         =  self.virt_type,
                 virt_auto_boot    =  virt_auto_boot,
+                virt_pxe_boot     =  virt_pxe_boot,
                 qemu_driver_type  =  self.qemu_disk_type,
                 qemu_net_type     =  self.qemu_net_type,
-                qemu_machine_type =  self.qemu_machine_type
+                qemu_machine_type =  self.qemu_machine_type,
+                wait              =  self.virtinstall_wait,
+                noreboot          =  self.virtinstall_noreboot,
+                osimport          =  self.virtinstall_osimport,
         )
 
         #print results
@@ -1547,6 +1577,20 @@ class Koan:
 
     #--------------------------------------------------
 
+    def calc_virt_pxeboot(self,data,override_pxeboot=False):
+        if override_pxeboot:
+           return True
+
+        pxeboot = self.safe_load(data,'virt_pxe_boot',0)
+        pxeboot = str(pxeboot).lower()
+
+        if pxeboot in [ "1", "true", "y", "yes" ]:
+           return True
+
+        return False
+
+    #--------------------------------------------------
+
     def calc_virt_filesize(self,data,default_filesize=0):
 
         # MAJOR FIXME: are there overrides?  
@@ -1589,7 +1633,7 @@ class Koan:
             #        the virtinst VirtualDisk class, but
             #        not all versions of virtinst have a 
             #        nice list to use
-            if t in ('raw','qcow','qcow2','aio'):
+            if t in ('raw','qcow','qcow2','aio', 'vmdk'):
                accum.append(t)
             else:
                print "invalid disk driver specified, defaulting to 'raw'"
@@ -1731,7 +1775,7 @@ class Koan:
                 if self.force_path:
                     return location
                 else:
-		    raise InfoException, "The location %s is an existing file. Consider '--force-path' to overwrite it." % location
+                    raise InfoException, "The location %s is an existing file. Consider '--force-path' to overwrite it." % location
         elif location.startswith("/dev/"):
             # partition
             if os.path.exists(location):
@@ -1774,29 +1818,27 @@ class Koan:
             if freespace >= int(virt_size):
             
                 # look for LVM partition named foo, create if doesn't exist
-                args = "lvs --noheadings -o lv_name %s" % location
+                args = "lvs --noheadings -o lv_name %s" % vgname
                 print "%s" % args
                 lvs_str=sub_process.Popen(args, stdout=sub_process.PIPE, shell=True).communicate()[0]
                 print lvs_str
          
-                name = "%s-disk%s" % (name,offset)
- 
                 # have to create it?
                 found_lvs = False
                 for lvs in lvs_str.split("\n"):
-                    if lvs.strip() == name:
+                    if lvs.strip() == lvname:
                         found_lvs = True
                         break
 
                 if not found_lvs:
-                    args = "lvcreate -L %sG -n %s %s" % (virt_size, name, location)
+                    args = "lvcreate -L %sG -n %s %s" % (virt_size, lvname, vgname)
                     print "%s" % args
                     lv_create = sub_process.call(args, shell=True)
                     if lv_create != 0:
                         raise InfoException, "LVM creation failed"
 
                 # partition location
-                partition_location = "/dev/mapper/%s-%s" % (vgname,lvname.replace('-','--'))
+                partition_location = "/dev/mapper/%s-%s" % (vgname.replace('-','--'),lvname.replace('-','--'))
 
                 # check whether we have SELinux enabled system
                 args = "/usr/sbin/selinuxenabled"
