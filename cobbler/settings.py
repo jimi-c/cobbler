@@ -107,6 +107,7 @@ DEFAULTS = {
     "redhat_management_server"            : ["xmlrpc.rhn.redhat.com","str"],
     "register_new_installs"               : [0,"bool"],
     "replicate_rsync_options"             : ["-avzH", "str"],
+    "replicate_repo_rsync_options"        : ["-avzH", "str"],
     "reposync_flags"                      : ["-l -m -d","str"],
     "restart_dns"                         : [1,"bool"],
     "restart_dhcp"                        : [1,"bool"],
@@ -118,7 +119,7 @@ DEFAULTS = {
     "server"                              : ["127.0.0.1","str"],
     "sign_puppet_certs_automatically"     : [0,"bool"],
     "signature_path"                      : ["/var/lib/cobbler/distro_signatures.json","str"],
-    "signature_url"                       : ["http://cobbler.github.com/signatures/latest.json","str"],
+    "signature_url"                       : ["http://www.cobblerd.org/signatures/latest.json","str"],
     "snippetsdir"                         : ["/var/lib/cobbler/snippets","str"],
     "template_remote_kickstarts"          : [0,"bool"],
     "virt_auto_boot"                      : [0,"bool"],
@@ -239,7 +240,9 @@ class Settings:
                raise AttributeError, "failed to set %s to %s" % (name,str(value))
            
            self.__dict__[name] = value
-           utils.update_settings_file(name,value)
+           if not utils.update_settings_file(self.to_datastruct()):
+               raise AttributeError, "failed to save the settings file!"
+               
            return 0
        else:
            raise AttributeError, name

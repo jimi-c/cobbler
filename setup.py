@@ -14,7 +14,7 @@ try:
 except:
     converage = None
 
-VERSION = "2.3.1"
+VERSION = "2.5.0"
 OUTPUT_DIR = "config"
 
 
@@ -166,7 +166,6 @@ if __name__ == "__main__":
     initpath    = "/etc/init.d/"
     libpath     = "/var/lib/cobbler/"
     logpath     = "/var/log/"
-    augeaspath  = "/usr/share/augeas/lenses/"
 
     if os.path.exists("/etc/SuSE-release"):
         webconfig  = "/etc/apache2/conf.d"
@@ -189,7 +188,7 @@ if __name__ == "__main__":
         long_description = "Cobbler is a network install server.  Cobbler supports PXE, virtualized installs, and reinstalling existing Linux machines.  The last two modes use a helper tool, 'koan', that integrates with cobbler.  There is also a web interface 'cobbler-web'.  Cobbler's advanced features include importing distributions from DVDs and rsync mirrors, kickstart templating, integrated yum mirroring, and built-in DHCP/DNS Management.  Cobbler has a XMLRPC API for integration with other applications.",
         author = "Team Cobbler",
         author_email = "cobbler@lists.fedorahosted.org",
-        url = "http://cobbler.github.com/",
+        url = "http://www.cobblerd.org/",
         license = "GPLv2+",
         requires = [
             "mod_python",
@@ -240,9 +239,6 @@ if __name__ == "__main__":
             ("%sreporting" % etcpath,       ["templates/reporting/*"]),
             ("%spower" % etcpath,           ["templates/power/*"]),
             ("%sldap" % etcpath,            ["templates/ldap/*"]),
-
-            #Miscellaneous Files
-            ("%s" % augeaspath,                ["misc/augeas/*"]),
 
             #Build empty directories to hold triggers
             ("%striggers/add/distro/pre" % libpath,       []),

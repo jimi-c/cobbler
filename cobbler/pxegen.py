@@ -117,6 +117,10 @@ class PXEGen:
             utils.copyfile_pattern('/usr/share/syslinux/memdisk', dst,
                     require_match=False, api=self.api, cache=False, logger=self.logger)
 
+        # Copy gPXE/iPXE bootloader if it exists
+        utils.copyfile_pattern('/usr/share/*pxe/undionly.kpxe', dst,
+                require_match=False, api=self.api, cache=False, logger=self.logger)
+
         # Copy grub EFI bootloaders if possible:
         utils.copyfile_pattern('/var/lib/cobbler/loaders/grub*.efi', grub_dst,
                 require_match=False, api=self.api, cache=False, logger=self.logger)
@@ -547,7 +551,7 @@ class PXEGen:
                         template = os.path.join(self.settings.pxe_template_dir,"pxesystem_ppc.template")
                     elif arch.startswith("arm"):
                         template = os.path.join(self.settings.pxe_template_dir,"pxesystem_arm.template")
-                    elif distro.os_version.startswith("esxi"):
+                    elif distro and distro.os_version.startswith("esxi"):
                         # ESXi uses a very different pxe method, using more files than
                         # a standard kickstart and different options - so giving it a dedicated
                         # PXE template makes more sense than shoe-horning it into the existing
@@ -683,10 +687,15 @@ class PXEGen:
 
             if distro.breed is None or distro.breed == "redhat":
                 append_line = "%s ks=%s" % (append_line, kickstart_path)
+                gpxe = blended["enable_gpxe"]
+                if gpxe:
+                    append_line = append_line.replace('ksdevice=bootif','ksdevice=${net0/mac}')
             elif distro.breed == "suse":
                 append_line = "%s autoyast=%s" % (append_line, kickstart_path)
             elif distro.breed == "debian" or distro.breed == "ubuntu":
                 append_line = "%s auto-install/enable=true priority=critical url=%s" % (append_line, kickstart_path)
+            elif distro.breed == "freebsd":
+                append_line = "%s ks=%s" % (append_line, kickstart_path)
 
                 # rework kernel options for debian distros
                 translations = { 'ksdevice':"interface" , 'lang':"locale" }
@@ -870,6 +879,7 @@ class PXEGen:
        else:
            obj = self.api.find_system(name=name)
            distro = obj.get_conceptual_parent().get_conceptual_parent()
+           netboot_enabled = obj.netboot_enabled
 
        # For multi-arch distros, the distro name in ks_mirror
        # may not contain the arch string, so we need to figure out
@@ -910,8 +920,15 @@ class PXEGen:
                template = os.path.join(self.settings.pxe_template_dir,"gpxe_%s_linux.template" % what.lower())
            elif distro.os_version == 'esxi4':
                template = os.path.join(self.settings.pxe_template_dir,"gpxe_%s_esxi4.template" % what.lower())
-           elif distro.os_version == 'esxi5':
+           elif distro.os_version.startswith('esxi5'):
                template = os.path.join(self.settings.pxe_template_dir,"gpxe_%s_esxi5.template" % what.lower())
+       elif distro.breed == 'freebsd':
+           template = os.path.join(self.settings.pxe_template_dir,"gpxe_%s_freebsd.template" % what.lower())
+
+       if what == "system":
+           if not netboot_enabled:
+               template = os.path.join(self.settings.pxe_template_dir,"gpxe_%s_local.template" % what.lower())
+
 
        if not template:
            return "# unsupported breed/os version"
@@ -956,6 +973,11 @@ class PXEGen:
        blended.update(ksmeta) # make available at top level
 
        blended['distro'] = ks_mirror_name
+
+       if obj.enable_gpxe:
+           blended['img_path'] = 'http://%s:%s/cobbler/links/%s' % (self.settings.server,self.settings.http_port,distro.name)
+       else:
+           blended['img_path'] = os.path.join("/images",distro.name)
 
        template = os.path.join(self.settings.pxe_template_dir,"bootcfg_%s_%s.template" % (what.lower(),distro.os_version))
        if not os.path.exists(template):

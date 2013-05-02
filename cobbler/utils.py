@@ -69,11 +69,6 @@ try:
 except ImportError:
     NETADDR_PRE_0_7 = False
 
-try:
-    import augeas
-except:
-    pass
-
 CHEETAH_ERROR_DISCLAIMER="""
 # *** ERROR ***
 #
@@ -116,6 +111,7 @@ SIGNATURE_CACHE = {}
 
 _re_kernel = re.compile(r'(vmlinu[xz]|kernel.img)')
 _re_initrd = re.compile(r'(initrd(.*).img|ramdisk.image.gz)')
+_re_is_mac = re.compile(':'.join(('[0-9A-Fa-f][0-9A-Fa-f]',)*6) + '$')
 
 # all logging from utils.die goes to the main log even if there
 # is another log.
@@ -266,12 +262,9 @@ def is_mac(strdata):
     """
     Return whether the argument is a mac address.
     """
-    # needs testcase
     if strdata is None:
         return False
-    if re.search(r'[A-F0-9]{2}:[A-F0-9]{2}:[A-F0-9]{2}:[A-F0-9]{2}:[A-F:0-9]{2}:[A-F:0-9]{2}',strdata, re.IGNORECASE):
-        return True
-    return False
+    return bool(_re_is_mac.match(strdata))
 
 def get_random_mac(api_handle,virt_type="xenpv"):
     """
@@ -596,28 +589,15 @@ def input_boolean(value):
     else:
        return False
 
-def update_settings_file(name,value):
-    try:
-        clogger.Logger().debug("in update_settings_file(): value is: %s" % str(value))
-        a = augeas.Augeas()
-        if isinstance(value,list):
-            a.remove('/files/etc/cobbler/settings/%s/list' % name)
-            for item in value:
-                a.set('/files/etc/cobbler/settings/%s/list/value[last()+1]' % name, item)
-        elif isinstance(value,dict):
-            keys = value.keys()
-            keys.sort()
-            a.remove('/files/etc/cobbler/settings/%s/*' % name)
-            for key in keys:
-                if str(value[key]).strip() == "":
-                    value[key] = '~'
-                a.set('/files/etc/cobbler/settings/%s/%s' % (name,key), str(value[key]))
-        else:
-            a.set('/files/etc/cobbler/settings/%s' % name, value)
-        a.save()
+def update_settings_file(data):
+    if 1:#try:
+        #clogger.Logger().debug("in update_settings_file(): value is: %s" % str(value))
+        settings_file = file("/etc/cobbler/settings","w")
+        yaml.safe_dump(data,settings_file)
+        settings_file.close()
         return True
-    except:
-        return False
+    #except:
+    #    return False
 
 def grab_tree(api_handle, obj):
     """
@@ -1447,7 +1427,7 @@ def set_virt_file_size(self,num):
     try:
         inum = int(num)
         if inum != float(num):
-            return CX(_("invalid virt file size (%s)" % num))
+            raise CX(_("invalid virt file size (%s)" % num))
         if inum >= 0:
             self.virt_file_size = inum
             return True
@@ -1487,9 +1467,9 @@ def set_virt_auto_boot(self,num):
         if (inum == 0) or (inum == 1):
             self.virt_auto_boot = inum
             return True
-        return CX(_("invalid virt_auto_boot value (%s): value must be either '0' (disabled) or '1' (enabled)" % inum))
+        raise CX(_("invalid virt_auto_boot value (%s): value must be either '0' (disabled) or '1' (enabled)" % inum))
     except:
-        return CX(_("invalid virt_auto_boot value (%s): value must be either '0' (disabled) or '1' (enabled)" % num))
+        raise CX(_("invalid virt_auto_boot value (%s): value must be either '0' (disabled) or '1' (enabled)" % num))
     return True
 
 def set_virt_pxe_boot(self,num):
@@ -1505,9 +1485,9 @@ def set_virt_pxe_boot(self,num):
         if (inum == 0) or (inum == 1):
             self.virt_pxe_boot = inum
             return True
-        return CX(_("invalid virt_pxe_boot value (%s): value must be either '0' (disabled) or '1' (enabled)" % inum))
+        raise CX(_("invalid virt_pxe_boot value (%s): value must be either '0' (disabled) or '1' (enabled)" % inum))
     except:
-        return CX(_("invalid virt_pxe_boot value (%s): value must be either '0' (disabled) or '1' (enabled)" % num))
+        raise CX(_("invalid virt_pxe_boot value (%s): value must be either '0' (disabled) or '1' (enabled)" % num))
     return True
 
 def set_virt_ram(self,num):
@@ -1525,13 +1505,13 @@ def set_virt_ram(self,num):
     try:
         inum = int(num)
         if inum != float(num):
-            return CX(_("invalid virt ram size (%s)" % num))
+            raise CX(_("invalid virt ram size (%s)" % num))
         if inum >= 0:
             self.virt_ram = inum
             return True
-        return CX(_("invalid virt ram size (%s)" % num))
+        raise CX(_("invalid virt ram size (%s)" % num))
     except:
-        return CX(_("invalid virt ram size (%s)" % num))
+        raise CX(_("invalid virt ram size (%s)" % num))
     return True
 
 def set_virt_type(self,vtype):
@@ -1939,60 +1919,64 @@ def matches_args(args, list_of):
     return False
 
 def add_options_from_fields(object_type, parser, fields, object_action):
-    for elem in fields:
-        k = elem[0] 
-        if k.find("widget") != -1:
-            continue
-        # scrub interface tags so all fields get added correctly.
-        k = k.replace("*","")
-        default = elem[1]
-        nicename = elem[3]
-        tooltip = elem[5]
-        choices = elem[6]
-        if field_info.ALTERNATE_OPTIONS.has_key(k):
-            niceopt = field_info.ALTERNATE_OPTIONS[k]
-        else:
-            niceopt = "--%s" % k.replace("_","-")
-        desc = nicename
-        if tooltip != "":
-            desc = nicename + " (%s)" % tooltip
+    if object_action in ["add","edit","find","copy","rename"]:
+        for elem in fields:
+            k = elem[0] 
+            if k.find("widget") != -1:
+                continue
+            # scrub interface tags so all fields get added correctly.
+            k = k.replace("*","")
+            default = elem[1]
+            nicename = elem[3]
+            tooltip = elem[5]
+            choices = elem[6]
+            if field_info.ALTERNATE_OPTIONS.has_key(k):
+                niceopt = field_info.ALTERNATE_OPTIONS[k]
+            else:
+                niceopt = "--%s" % k.replace("_","-")
+            desc = nicename
+            if tooltip != "":
+                desc = nicename + " (%s)" % tooltip
 
-        aliasopt = []
-        for deprecated_field in field_info.DEPRECATED_FIELDS.keys():
-            if field_info.DEPRECATED_FIELDS[deprecated_field] == k:
-                aliasopt.append("--%s" % deprecated_field)
+            aliasopt = []
+            for deprecated_field in field_info.DEPRECATED_FIELDS.keys():
+                if field_info.DEPRECATED_FIELDS[deprecated_field] == k:
+                    aliasopt.append("--%s" % deprecated_field)
 
-        if isinstance(choices, list) and len(choices) != 0:
-            desc = desc + " (valid options: %s)" % ",".join(choices)    
-            parser.add_option(niceopt, dest=k, help=desc, choices=choices)
-            for alias in aliasopt:
-                parser.add_option(alias, dest=k, help=desc, choices=choices)
-        else:
-            parser.add_option(niceopt, dest=k, help=desc)
-            for alias in aliasopt:
-                parser.add_option(alias, dest=k, help=desc)
+            if isinstance(choices, list) and len(choices) != 0:
+                desc = desc + " (valid options: %s)" % ",".join(choices)    
+                parser.add_option(niceopt, dest=k, help=desc, choices=choices)
+                for alias in aliasopt:
+                    parser.add_option(alias, dest=k, help=desc, choices=choices)
+            else:
+                parser.add_option(niceopt, dest=k, help=desc)
+                for alias in aliasopt:
+                    parser.add_option(alias, dest=k, help=desc)
 
+        if object_type == "system":
+            # system object
+            parser.add_option("--interface", dest="interface", help="the interface to operate on (can only be specified once per command line)")
+            if object_action in ["add","edit"]:
+                parser.add_option("--delete-interface", dest="delete_interface", action="store_true")
+                parser.add_option("--rename-interface", dest="rename_interface")
 
-    # FIXME: not supported in 2.0?
-    if not object_action in ["dumpvars","find","remove","report","list"] and object_type != "setting": 
-        # FIXME: implement
-        parser.add_option("--clobber", dest="clobber", help="allow add to overwrite existing objects", action="store_true")
-        parser.add_option("--in-place", action="store_true", default=False, dest="in_place", help="edit items in kopts or ksmeta without clearing the other items")
-    if object_action in ["copy","rename"]:
-        parser.add_option("--newname", help="new object name")
+        if object_action in ["copy","rename"]:
+            parser.add_option("--newname", help="new object name")
+
+        if object_action not in ["find",] and object_type != "setting": 
+            parser.add_option("--clobber", dest="clobber", help="allow add to overwrite existing objects", action="store_true")
+            parser.add_option("--in-place", action="store_true", default=False, dest="in_place", help="edit items in kopts or ksmeta without clearing the other items")
+
+    elif object_action == "remove":
+        parser.add_option("--name", help="%s name to remove" % object_type)
+        parser.add_option("--recursive", action="store_true", dest="recursive", help="also delete child objects")
+
     # FIXME: not supported in 2.0 ?
     #if not object_action in ["dumpvars","find","remove","report","list"]: 
     #    parser.add_option("--no-sync",     action="store_true", dest="nosync", help="suppress sync for speed")
     # FIXME: not supported in 2.0 ?
     # if not matches_args(args,["dumpvars","report","list"]):
     #    parser.add_option("--no-triggers", action="store_true", dest="notriggers", help="suppress trigger execution")
-    if object_action in ["remove"]:
-        parser.add_option("--recursive", action="store_true", dest="recursive", help="also delete child objects")
-    if object_type == "system":
-        # system object
-        parser.add_option("--interface", dest="interface", help="which interface to edit")
-        parser.add_option("--delete-interface", dest="delete_interface", action="store_true")
-
 
 def get_remote_methods_from_fields(obj,fields):
     """
@@ -2006,6 +1990,7 @@ def get_remote_methods_from_fields(obj,fields):
     if obj.COLLECTION_TYPE == "system":
        ds["modify_interface"] = getattr(obj,"modify_interface")
        ds["delete_interface"] = getattr(obj,"delete_interface")
+       ds["rename_interface"] = getattr(obj,"rename_interface")
     return ds
 
 def get_power_types():

@@ -7,13 +7,13 @@ Summary: Boot server configurator
 Name: cobbler
 License: GPLv2+
 AutoReq: no
-Version: 2.3.1
+Version: 2.5.0
 Release: 1%{?dist}
 Source0: http://shenson.fedorapeople.org/cobbler/cobbler-%{version}.tar.gz
 Group: Applications/System
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 BuildArch: noarch
-Url: http://cobbler.github.com/
+Url: http://www.cobblerd.org/
 
 BuildRequires: redhat-rpm-config
 BuildRequires: git
@@ -24,14 +24,15 @@ Requires: python >= 2.3
 Requires: httpd
 Requires: tftp-server
 Requires: mod_wsgi
+Requires: mod_ssl
 Requires: createrepo
-Requires: python-augeas
 Requires: python-cheetah
 Requires: python-netaddr
 Requires: python-simplejson
 Requires: python-urlgrabber
 Requires: PyYAML
 Requires: rsync
+Requires: syslinux
 
 %if 0%{?fedora} >= 11 || 0%{?rhel} >= 6
 Requires: python(abi) >= %{pyver}
@@ -257,8 +258,6 @@ test "x$RPM_BUILD_ROOT" != "x" && rm -rf $RPM_BUILD_ROOT
 %else
 /tftpboot/images
 %endif
-
-/usr/share/augeas/lenses/cobblersettings.aug
 
 %doc AUTHORS CHANGELOG README COPYING
 
