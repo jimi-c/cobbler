@@ -118,9 +118,6 @@ restorestate:
 	if [ -d $(DESTDIR)/usr/share/cobbler/web ] ; then \
 		chmod -R +x $(DESTDIR)/usr/share/cobbler/web; \
 	fi
-	if [ -d $(DESTDIR)/srv/www/cobbler/svc ]; then \
-		chmod -R +x $(DESTDIR)/srv/www/cobbler/svc; \
-	fi
 	rm -rf $(statepath)
 
 webtest: devinstall
